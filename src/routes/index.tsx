@@ -87,9 +87,24 @@ function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={ventasMensuales} barGap={6}>
                 <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="4 4" />
-                <XAxis dataKey="mes" tickLine={false} axisLine={false} stroke="var(--muted-foreground)" fontSize={12} />
-                <YAxis tickLine={false} axisLine={false} stroke="var(--muted-foreground)" fontSize={12} width={54} />
-                <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
+                <XAxis
+                  dataKey="mes"
+                  tickLine={false}
+                  axisLine={false}
+                  stroke="var(--muted-foreground)"
+                  fontSize={12}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  stroke="var(--muted-foreground)"
+                  fontSize={12}
+                  width={54}
+                />
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  cursor={{ fill: "var(--muted)", opacity: 0.4 }}
+                />
                 <Bar dataKey="meta" fill="var(--chart-5)" radius={[6, 6, 0, 0]} opacity={0.45} />
                 <Bar dataKey="ventas" fill="var(--chart-1)" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -130,11 +145,35 @@ function Dashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={tendencia}>
                 <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="4 4" />
-                <XAxis dataKey="dia" tickLine={false} axisLine={false} stroke="var(--muted-foreground)" fontSize={12} />
-                <YAxis tickLine={false} axisLine={false} stroke="var(--muted-foreground)" fontSize={12} width={36} />
+                <XAxis
+                  dataKey="dia"
+                  tickLine={false}
+                  axisLine={false}
+                  stroke="var(--muted-foreground)"
+                  fontSize={12}
+                />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  stroke="var(--muted-foreground)"
+                  fontSize={12}
+                  width={36}
+                />
                 <Tooltip contentStyle={tooltipStyle} />
-                <Line type="monotone" dataKey="conversaciones" stroke="var(--chart-1)" strokeWidth={2.5} dot={false} />
-                <Line type="monotone" dataKey="leads" stroke="var(--chart-2)" strokeWidth={2.5} dot={false} />
+                <Line
+                  type="monotone"
+                  dataKey="conversaciones"
+                  stroke="var(--chart-1)"
+                  strokeWidth={2.5}
+                  dot={false}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="leads"
+                  stroke="var(--chart-2)"
+                  strokeWidth={2.5}
+                  dot={false}
+                />
               </LineChart>
             </ResponsiveContainer>
           </div>

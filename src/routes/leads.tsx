@@ -14,7 +14,10 @@ export const Route = createFileRoute("/leads")({
           "Pipeline Kanban de leads: arrastra tarjetas entre etapas, asigna responsables y revisa el scoring IA.",
       },
       { property: "og:title", content: "Pipeline de Leads — ZOLMYRA AI OS" },
-      { property: "og:description", content: "Kanban comercial con scoring de Inteligencia Artificial." },
+      {
+        property: "og:description",
+        content: "Kanban comercial con scoring de Inteligencia Artificial.",
+      },
     ],
   }),
   component: Leads,

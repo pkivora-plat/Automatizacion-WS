@@ -153,13 +153,7 @@ export const contactos: Contacto[] = [
 ];
 
 export type LeadEtapa =
-  | "Nuevo"
-  | "Contactado"
-  | "Calificado"
-  | "Propuesta"
-  | "Negociación"
-  | "Ganado"
-  | "Perdido";
+  "Nuevo" | "Contactado" | "Calificado" | "Propuesta" | "Negociación" | "Ganado" | "Perdido";
 
 export const etapas: LeadEtapa[] = [
   "Nuevo",
@@ -183,16 +177,106 @@ export type Lead = {
 };
 
 export const leadsIniciales: Lead[] = [
-  { id: "L-01", nombre: "María Fernanda Rojas", empresa: "Andes Logistics", valor: 18500, responsable: "Ana Vargas", score: 88, etapa: "Nuevo", canal: "WhatsApp" },
-  { id: "L-02", nombre: "Paola Arispe", empresa: "EduSmart", valor: 7400, responsable: "Luis Peña", score: 62, etapa: "Nuevo", canal: "Web" },
-  { id: "L-03", nombre: "Carlos Villarroel", empresa: "Nexa Constructora", valor: 32000, responsable: "Ana Vargas", score: 74, etapa: "Contactado", canal: "Meta Ads" },
-  { id: "L-04", nombre: "Andrés Camacho", empresa: "Grupo Altiplano", valor: 12300, responsable: "Diego Ruiz", score: 69, etapa: "Contactado", canal: "WhatsApp" },
-  { id: "L-05", nombre: "Daniela Peñaranda", empresa: "Clínica Sur", valor: 24800, responsable: "Luis Peña", score: 81, etapa: "Calificado", canal: "Web" },
-  { id: "L-06", nombre: "Jorge Mendoza", empresa: "Tech Bolivia SRL", valor: 41000, responsable: "Ana Vargas", score: 92, etapa: "Propuesta", canal: "Referido" },
-  { id: "L-07", nombre: "Rodrigo Salazar", empresa: "Fintech Andina", valor: 56000, responsable: "Diego Ruiz", score: 85, etapa: "Negociación", canal: "Referido" },
-  { id: "L-08", nombre: "Lucía Gutiérrez", empresa: "Retail Prime", valor: 9800, responsable: "Luis Peña", score: 34, etapa: "Perdido", canal: "Google Ads" },
-  { id: "L-09", nombre: "Sofía Alarcón", empresa: "Vitalis Pharma", valor: 28900, responsable: "Ana Vargas", score: 90, etapa: "Ganado", canal: "WhatsApp" },
-  { id: "L-10", nombre: "Iván Torrico", empresa: "AgroSur", valor: 15600, responsable: "Diego Ruiz", score: 58, etapa: "Calificado", canal: "Meta Ads" },
+  {
+    id: "L-01",
+    nombre: "María Fernanda Rojas",
+    empresa: "Andes Logistics",
+    valor: 18500,
+    responsable: "Ana Vargas",
+    score: 88,
+    etapa: "Nuevo",
+    canal: "WhatsApp",
+  },
+  {
+    id: "L-02",
+    nombre: "Paola Arispe",
+    empresa: "EduSmart",
+    valor: 7400,
+    responsable: "Luis Peña",
+    score: 62,
+    etapa: "Nuevo",
+    canal: "Web",
+  },
+  {
+    id: "L-03",
+    nombre: "Carlos Villarroel",
+    empresa: "Nexa Constructora",
+    valor: 32000,
+    responsable: "Ana Vargas",
+    score: 74,
+    etapa: "Contactado",
+    canal: "Meta Ads",
+  },
+  {
+    id: "L-04",
+    nombre: "Andrés Camacho",
+    empresa: "Grupo Altiplano",
+    valor: 12300,
+    responsable: "Diego Ruiz",
+    score: 69,
+    etapa: "Contactado",
+    canal: "WhatsApp",
+  },
+  {
+    id: "L-05",
+    nombre: "Daniela Peñaranda",
+    empresa: "Clínica Sur",
+    valor: 24800,
+    responsable: "Luis Peña",
+    score: 81,
+    etapa: "Calificado",
+    canal: "Web",
+  },
+  {
+    id: "L-06",
+    nombre: "Jorge Mendoza",
+    empresa: "Tech Bolivia SRL",
+    valor: 41000,
+    responsable: "Ana Vargas",
+    score: 92,
+    etapa: "Propuesta",
+    canal: "Referido",
+  },
+  {
+    id: "L-07",
+    nombre: "Rodrigo Salazar",
+    empresa: "Fintech Andina",
+    valor: 56000,
+    responsable: "Diego Ruiz",
+    score: 85,
+    etapa: "Negociación",
+    canal: "Referido",
+  },
+  {
+    id: "L-08",
+    nombre: "Lucía Gutiérrez",
+    empresa: "Retail Prime",
+    valor: 9800,
+    responsable: "Luis Peña",
+    score: 34,
+    etapa: "Perdido",
+    canal: "Google Ads",
+  },
+  {
+    id: "L-09",
+    nombre: "Sofía Alarcón",
+    empresa: "Vitalis Pharma",
+    valor: 28900,
+    responsable: "Ana Vargas",
+    score: 90,
+    etapa: "Ganado",
+    canal: "WhatsApp",
+  },
+  {
+    id: "L-10",
+    nombre: "Iván Torrico",
+    empresa: "AgroSur",
+    valor: 15600,
+    responsable: "Diego Ruiz",
+    score: 58,
+    etapa: "Calificado",
+    canal: "Meta Ads",
+  },
 ];
 
 export type Conversacion = {
@@ -221,10 +305,22 @@ export const conversaciones: Conversacion[] = [
     score: 88,
     telefono: "+591 700 12345",
     mensajes: [
-      { de: "cliente", texto: "Hola, vi su plataforma de automatización comercial.", hora: "10:20" },
-      { de: "agente", texto: "¡Hola María! Gracias por escribir. ¿Cuántos agentes atienden hoy tu WhatsApp?", hora: "10:23" },
+      {
+        de: "cliente",
+        texto: "Hola, vi su plataforma de automatización comercial.",
+        hora: "10:20",
+      },
+      {
+        de: "agente",
+        texto: "¡Hola María! Gracias por escribir. ¿Cuántos agentes atienden hoy tu WhatsApp?",
+        hora: "10:23",
+      },
       { de: "cliente", texto: "Somos 6 personas y perdemos muchos mensajes.", hora: "10:31" },
-      { de: "agente", texto: "Con ZOLMYRA centralizas todo y la IA califica cada lead automáticamente.", hora: "10:35" },
+      {
+        de: "agente",
+        texto: "Con ZOLMYRA centralizas todo y la IA califica cada lead automáticamente.",
+        hora: "10:35",
+      },
       { de: "cliente", texto: "Perfecto, ¿me envías la propuesta hoy?", hora: "10:42" },
     ],
     notasIA: [
@@ -244,9 +340,21 @@ export const conversaciones: Conversacion[] = [
     score: 74,
     telefono: "+591 712 88320",
     mensajes: [
-      { de: "agente", texto: "Buen día Carlos, te comparto el resumen del plan Enterprise.", hora: "09:30" },
-      { de: "cliente", texto: "Gracias. El precio está algo alto para este trimestre.", hora: "09:44" },
-      { de: "agente", texto: "Podemos escalar por fases, iniciando con 3 licencias.", hora: "09:51" },
+      {
+        de: "agente",
+        texto: "Buen día Carlos, te comparto el resumen del plan Enterprise.",
+        hora: "09:30",
+      },
+      {
+        de: "cliente",
+        texto: "Gracias. El precio está algo alto para este trimestre.",
+        hora: "09:44",
+      },
+      {
+        de: "agente",
+        texto: "Podemos escalar por fases, iniciando con 3 licencias.",
+        hora: "09:51",
+      },
       { de: "cliente", texto: "Lo reviso con el directorio y te aviso.", hora: "09:58" },
     ],
     notasIA: [
@@ -267,9 +375,17 @@ export const conversaciones: Conversacion[] = [
     telefono: "+591 749 30271",
     mensajes: [
       { de: "cliente", texto: "Hola, ¿tienen integración con N8N?", hora: "18:12" },
-      { de: "agente", texto: "Sí, incluimos webhooks nativos y nodos listos para usar.", hora: "18:20" },
+      {
+        de: "agente",
+        texto: "Sí, incluimos webhooks nativos y nodos listos para usar.",
+        hora: "18:20",
+      },
     ],
-    notasIA: ["Probabilidad de cierre: 47%", "Perfil técnico: alto", "Recomendación: agendar demo técnica"],
+    notasIA: [
+      "Probabilidad de cierre: 47%",
+      "Perfil técnico: alto",
+      "Recomendación: agendar demo técnica",
+    ],
   },
   {
     id: "W-4",
@@ -286,7 +402,11 @@ export const conversaciones: Conversacion[] = [
       { de: "agente", texto: "Excelente Rodrigo, quedo pendiente.", hora: "16:10" },
       { de: "cliente", texto: "Firmamos el lunes.", hora: "16:22" },
     ],
-    notasIA: ["Probabilidad de cierre: 93%", "Etapa: cierre legal", "Recomendación: preparar onboarding"],
+    notasIA: [
+      "Probabilidad de cierre: 93%",
+      "Etapa: cierre legal",
+      "Recomendación: preparar onboarding",
+    ],
   },
 ];
 
@@ -301,13 +421,69 @@ export type Oportunidad = {
 };
 
 export const oportunidades: Oportunidad[] = [
-  { id: "O-2201", cliente: "Andes Logistics", producto: "ZOLMYRA Growth", valor: 18500, probabilidad: 85, estado: "Propuesta", cierre: "05 Sep 2026" },
-  { id: "O-2202", cliente: "Nexa Constructora", producto: "ZOLMYRA Enterprise", valor: 32000, probabilidad: 61, estado: "Negociación", cierre: "18 Sep 2026" },
-  { id: "O-2203", cliente: "Fintech Andina", producto: "ZOLMYRA Enterprise + IA", valor: 56000, probabilidad: 93, estado: "Negociación", cierre: "02 Sep 2026" },
-  { id: "O-2204", cliente: "Clínica Sur", producto: "ZOLMYRA Growth", valor: 24800, probabilidad: 72, estado: "Calificado", cierre: "24 Sep 2026" },
-  { id: "O-2205", cliente: "Tech Bolivia SRL", producto: "Agente IA WhatsApp", valor: 41000, probabilidad: 78, estado: "Propuesta", cierre: "12 Sep 2026" },
-  { id: "O-2206", cliente: "EduSmart", producto: "ZOLMYRA Starter", valor: 7400, probabilidad: 44, estado: "Calificado", cierre: "30 Sep 2026" },
-  { id: "O-2207", cliente: "Vitalis Pharma", producto: "ZOLMYRA Growth", valor: 28900, probabilidad: 100, estado: "Ganado", cierre: "22 Ago 2026" },
+  {
+    id: "O-2201",
+    cliente: "Andes Logistics",
+    producto: "ZOLMYRA Growth",
+    valor: 18500,
+    probabilidad: 85,
+    estado: "Propuesta",
+    cierre: "05 Sep 2026",
+  },
+  {
+    id: "O-2202",
+    cliente: "Nexa Constructora",
+    producto: "ZOLMYRA Enterprise",
+    valor: 32000,
+    probabilidad: 61,
+    estado: "Negociación",
+    cierre: "18 Sep 2026",
+  },
+  {
+    id: "O-2203",
+    cliente: "Fintech Andina",
+    producto: "ZOLMYRA Enterprise + IA",
+    valor: 56000,
+    probabilidad: 93,
+    estado: "Negociación",
+    cierre: "02 Sep 2026",
+  },
+  {
+    id: "O-2204",
+    cliente: "Clínica Sur",
+    producto: "ZOLMYRA Growth",
+    valor: 24800,
+    probabilidad: 72,
+    estado: "Calificado",
+    cierre: "24 Sep 2026",
+  },
+  {
+    id: "O-2205",
+    cliente: "Tech Bolivia SRL",
+    producto: "Agente IA WhatsApp",
+    valor: 41000,
+    probabilidad: 78,
+    estado: "Propuesta",
+    cierre: "12 Sep 2026",
+  },
+  {
+    id: "O-2206",
+    cliente: "EduSmart",
+    producto: "ZOLMYRA Starter",
+    valor: 7400,
+    probabilidad: 44,
+    estado: "Calificado",
+    cierre: "30 Sep 2026",
+  },
+  {
+    id: "O-2207",
+    cliente: "Vitalis Pharma",
+    producto: "ZOLMYRA Growth",
+    valor: 28900,
+    probabilidad: 100,
+    estado: "Ganado",
+    cierre: "22 Ago 2026",
+  },
 ];
 
 export const insightsIA = [

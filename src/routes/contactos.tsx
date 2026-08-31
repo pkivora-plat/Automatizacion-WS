@@ -98,7 +98,10 @@ function Contactos() {
             </thead>
             <tbody>
               {filtrados.map((c) => (
-                <tr key={c.id} className="border-b border-border/60 transition hover:bg-surface-2/50">
+                <tr
+                  key={c.id}
+                  className="border-b border-border/60 transition hover:bg-surface-2/50"
+                >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <span className="grid size-9 shrink-0 place-items-center rounded-full bg-secondary text-[11px] font-semibold">

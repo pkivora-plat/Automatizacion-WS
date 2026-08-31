@@ -14,7 +14,10 @@ export const Route = createFileRoute("/conversaciones")({
           "Bandeja unificada de WhatsApp Business con ficha del cliente, estado del lead, historial y notas IA.",
       },
       { property: "og:title", content: "Conversaciones WhatsApp — ZOLMYRA AI OS" },
-      { property: "og:description", content: "Inbox omnicanal estilo WhatsApp Web con asistencia IA." },
+      {
+        property: "og:description",
+        content: "Inbox omnicanal estilo WhatsApp Web con asistencia IA.",
+      },
     ],
   }),
   component: Conversaciones,
@@ -47,7 +50,11 @@ function Conversaciones() {
                 }`}
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-secondary text-xs font-semibold">
-                  {c.nombre.split(" ").slice(0, 2).map((n) => n[0]).join("")}
+                  {c.nombre
+                    .split(" ")
+                    .slice(0, 2)
+                    .map((n) => n[0])
+                    .join("")}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-2">
@@ -71,7 +78,11 @@ function Conversaciones() {
         <section className="flex min-h-0 flex-col bg-background">
           <header className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
             <span className="grid size-10 place-items-center rounded-full bg-secondary text-xs font-semibold">
-              {chat.nombre.split(" ").slice(0, 2).map((n) => n[0]).join("")}
+              {chat.nombre
+                .split(" ")
+                .slice(0, 2)
+                .map((n) => n[0])
+                .join("")}
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{chat.nombre}</p>
@@ -79,17 +90,26 @@ function Conversaciones() {
                 {chat.empresa} · en línea
               </p>
             </div>
-            <button className="rounded-lg border border-border p-2 text-muted-foreground" aria-label="Llamar">
+            <button
+              className="rounded-lg border border-border p-2 text-muted-foreground"
+              aria-label="Llamar"
+            >
               <Phone className="size-4" />
             </button>
-            <button className="rounded-lg border border-border p-2 text-muted-foreground" aria-label="Videollamada">
+            <button
+              className="rounded-lg border border-border p-2 text-muted-foreground"
+              aria-label="Videollamada"
+            >
               <Video className="size-4" />
             </button>
           </header>
 
           <div className="flex-1 space-y-3 overflow-y-auto p-5">
             {chat.mensajes.map((m, i) => (
-              <div key={i} className={`flex ${m.de === "agente" ? "justify-end" : "justify-start"}`}>
+              <div
+                key={i}
+                className={`flex ${m.de === "agente" ? "justify-end" : "justify-start"}`}
+              >
                 <div
                   className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-sm shadow-[var(--shadow-soft)] ${
                     m.de === "agente"
@@ -106,7 +126,10 @@ function Conversaciones() {
 
           <div className="border-t border-border bg-surface p-3">
             <div className="flex items-center gap-2">
-              <button className="rounded-lg border border-border p-2.5 text-muted-foreground" aria-label="Adjuntar">
+              <button
+                className="rounded-lg border border-border p-2.5 text-muted-foreground"
+                aria-label="Adjuntar"
+              >
                 <Paperclip className="size-4" />
               </button>
               <input
@@ -130,7 +153,11 @@ function Conversaciones() {
         <aside className="hidden flex-col gap-4 overflow-y-auto border-l border-border bg-surface p-4 xl:flex">
           <div className="text-center">
             <span className="mx-auto grid size-16 place-items-center rounded-full bg-brand-gradient text-lg font-semibold text-primary-foreground">
-              {chat.nombre.split(" ").slice(0, 2).map((n) => n[0]).join("")}
+              {chat.nombre
+                .split(" ")
+                .slice(0, 2)
+                .map((n) => n[0])
+                .join("")}
             </span>
             <p className="mt-3 text-sm font-semibold">{chat.nombre}</p>
             <p className="text-xs text-muted-foreground">{chat.empresa}</p>
@@ -146,7 +173,10 @@ function Conversaciones() {
               <span className="text-xs font-semibold text-ai">Score {chat.score}</span>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-brand-gradient" style={{ width: `${chat.score}%` }} />
+              <div
+                className="h-full rounded-full bg-brand-gradient"
+                style={{ width: `${chat.score}%` }}
+              />
             </div>
           </div>
 
