@@ -16,12 +16,14 @@ import {
   X,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { useOrganization } from "@/lib/organization";
 
 export const Route = createFileRoute("/configuracion")({
   head: () => ({ meta: [{ title: "Configuración — ZOLMYRA AI OS" }] }),
   component: Configuracion,
 });
 const sections = [
+  ["empresas", "Empresas", Building2],
   ["whatsapp", "WhatsApp Business", MessageCircle],
   ["equipo", "Equipo y permisos", Users],
   ["integraciones", "Integraciones", Plug],
@@ -29,8 +31,10 @@ const sections = [
 ] as const;
 
 function Configuracion() {
-  const [section, setSection] = useState<(typeof sections)[number][0]>("whatsapp");
+  const [section, setSection] = useState<(typeof sections)[number][0]>("empresas");
   const [wizard, setWizard] = useState(false);
+  const [newOrganization, setNewOrganization] = useState("");
+  const { organizations, current, switchOrganization, createOrganization } = useOrganization();
   const metaReady = Boolean(
     import.meta.env.VITE_META_APP_ID && import.meta.env.VITE_META_CONFIG_ID,
   );
@@ -54,6 +58,82 @@ function Configuracion() {
           ))}
         </aside>
         <div className="space-y-5">
+          {section === "empresas" && (
+            <>
+              <section className="panel p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-semibold">Espacios de trabajo</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Cada empresa mantiene su configuración, equipo y datos separados.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs text-primary">
+                    {organizations.length} {organizations.length === 1 ? "empresa" : "empresas"}
+                  </span>
+                </div>
+                <div className="mt-5 space-y-3">
+                  {organizations.map((org) => (
+                    <article
+                      key={org.id}
+                      className={`flex flex-wrap items-center gap-3 rounded-xl border p-4 ${org.id === current.id ? "border-primary/40 bg-primary/5" : "border-border"}`}
+                    >
+                      <span className="grid size-10 place-items-center rounded-xl bg-secondary font-bold">
+                        {org.name.slice(0, 1)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold">{org.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          /{org.slug} · Plan {org.plan}
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-border px-3 py-1 text-xs">
+                        {org.role}
+                      </span>
+                      {org.id === current.id ? (
+                        <span className="flex items-center gap-1 text-xs text-success">
+                          <CheckCircle2 className="size-4" />
+                          Activa
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => switchOrganization(org.id)}
+                          className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:text-primary"
+                        >
+                          Cambiar
+                        </button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              </section>
+              <section className="panel p-5">
+                <h2 className="font-semibold">Crear otra empresa</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Se creará un espacio independiente con configuración propia.
+                </p>
+                <form
+                  className="mt-4 flex flex-col gap-3 sm:flex-row"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!newOrganization.trim()) return;
+                    createOrganization(newOrganization);
+                    setNewOrganization("");
+                  }}
+                >
+                  <input
+                    value={newOrganization}
+                    onChange={(event) => setNewOrganization(event.target.value)}
+                    placeholder="Nombre de la empresa"
+                    className="h-11 flex-1 rounded-lg border border-border bg-surface-2 px-3 text-sm outline-none focus:border-primary"
+                  />
+                  <button className="rounded-lg bg-brand-gradient px-5 py-2.5 text-sm font-semibold">
+                    Crear espacio
+                  </button>
+                </form>
+              </section>
+            </>
+          )}
           {section === "whatsapp" && (
             <>
               <section className="panel-glow overflow-hidden p-6">

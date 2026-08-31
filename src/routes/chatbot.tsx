@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
+import { useOrganization } from "@/lib/organization";
 
 export const Route = createFileRoute("/chatbot")({
   head: () => ({ meta: [{ title: "Constructor de chatbot — ZOLMYRA AI OS" }] }),
@@ -61,12 +62,17 @@ function ChatbotBuilder() {
   const [saved, setSaved] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([{ from: "bot", text: initial.welcome }]);
+  const { current } = useOrganization();
+  const storageKey = `zolmyra.bot-config.${current.id}`;
   useEffect(() => {
-    const stored = localStorage.getItem("zolmyra.bot-config");
-    if (stored) setConfig(JSON.parse(stored) as BotConfig);
-  }, []);
+    const stored = localStorage.getItem(storageKey);
+    setConfig(stored ? (JSON.parse(stored) as BotConfig) : initial);
+    setMessages([
+      { from: "bot", text: stored ? (JSON.parse(stored) as BotConfig).welcome : initial.welcome },
+    ]);
+  }, [storageKey]);
   function save() {
-    localStorage.setItem("zolmyra.bot-config", JSON.stringify(config));
+    localStorage.setItem(storageKey, JSON.stringify(config));
     setSaved(true);
     setTimeout(() => setSaved(false), 1800);
   }
