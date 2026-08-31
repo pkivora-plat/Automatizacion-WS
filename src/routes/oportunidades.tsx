@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { DollarSign, Plus, Target, TrendingUp } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { AppShell, StatusPill } from "@/components/app-shell";
 import { oportunidades } from "@/lib/crm-data";
 
@@ -22,15 +23,17 @@ function Oportunidades() {
       }
     >
       <section className="grid gap-4 sm:grid-cols-3">
-        {[
-          ["Pipeline total", `$${pipeline.toLocaleString("es-BO")}`, DollarSign],
+        {(
           [
-            "Probabilidad media",
-            `${Math.round(oportunidades.reduce((s, o) => s + o.probabilidad, 0) / oportunidades.length)}%`,
-            TrendingUp,
-          ],
-          ["Oportunidades", String(oportunidades.length), Target],
-        ].map(([l, v, Icon]) => (
+            ["Pipeline total", `$${pipeline.toLocaleString("es-BO")}`, DollarSign],
+            [
+              "Probabilidad media",
+              `${Math.round(oportunidades.reduce((s, o) => s + o.probabilidad, 0) / oportunidades.length)}%`,
+              TrendingUp,
+            ],
+            ["Oportunidades", String(oportunidades.length), Target],
+          ] satisfies ReadonlyArray<readonly [string, string, LucideIcon]>
+        ).map(([l, v, Icon]) => (
           <div className="panel p-5" key={String(l)}>
             <Icon className="size-5 text-primary" />
             <p className="mt-3 text-xs text-muted-foreground">{l}</p>

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BrainCircuit, CheckCircle2, Sparkles, Target } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { insightsIA } from "@/lib/crm-data";
 
@@ -15,11 +16,13 @@ function InteligenciaIA() {
       subtitle="Prioriza oportunidades y convierte señales en acciones"
     >
       <section className="grid gap-4 md:grid-cols-3">
-        {[
-          ["Leads analizados", "1.284", BrainCircuit],
-          ["Score promedio", "79/100", Target],
-          ["Acciones sugeridas", "18", Sparkles],
-        ].map(([label, value, Icon]) => (
+        {(
+          [
+            ["Leads analizados", "1.284", BrainCircuit],
+            ["Score promedio", "79/100", Target],
+            ["Acciones sugeridas", "18", Sparkles],
+          ] satisfies ReadonlyArray<readonly [string, string, LucideIcon]>
+        ).map(([label, value, Icon]) => (
           <div className="panel p-5" key={String(label)}>
             <Icon className="size-5 text-ai" />
             <p className="mt-4 text-xs text-muted-foreground">{label}</p>

@@ -15,6 +15,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { AppShell } from "@/components/app-shell";
 import { useOrganization } from "@/lib/organization";
 
@@ -36,7 +37,7 @@ function Configuracion() {
   const [newOrganization, setNewOrganization] = useState("");
   const { organizations, current, switchOrganization, createOrganization } = useOrganization();
   const metaReady = Boolean(
-    import.meta.env.VITE_META_APP_ID && import.meta.env.VITE_META_CONFIG_ID,
+    import.meta.env["VITE_META_APP_ID"] && import.meta.env["VITE_META_CONFIG_ID"],
   );
   return (
     <AppShell
@@ -162,11 +163,13 @@ function Configuracion() {
                 </div>
               </section>
               <section className="grid gap-4 md:grid-cols-3">
-                {[
-                  [Building2, "Empresa de Meta", "Sin conectar"],
-                  [MessageCircle, "Cuenta de WhatsApp", "Sin conectar"],
-                  [Phone, "Número comercial", "Sin registrar"],
-                ].map(([Icon, title, status]) => (
+                {(
+                  [
+                    [Building2, "Empresa de Meta", "Sin conectar"],
+                    [MessageCircle, "Cuenta de WhatsApp", "Sin conectar"],
+                    [Phone, "Número comercial", "Sin registrar"],
+                  ] satisfies ReadonlyArray<readonly [LucideIcon, string, string]>
+                ).map(([Icon, title, status]) => (
                   <article className="panel p-5" key={String(title)}>
                     <Icon className="size-5 text-muted-foreground" />
                     <p className="mt-4 text-sm font-semibold">{title}</p>
@@ -208,11 +211,13 @@ function Configuracion() {
                   Invitar usuario
                 </button>
               </header>
-              {[
-                ["Ricky E.", "rickit60-ctrl@users.noreply.github.com", "Administrador"],
-                ["Ana Vargas", "ana@zolmyra.ai", "Supervisor"],
-                ["Luis Peña", "luis@zolmyra.ai", "Agente"],
-              ].map(([name, email, role]) => (
+              {(
+                [
+                  ["Ricky E.", "rickit60-ctrl@users.noreply.github.com", "Administrador"],
+                  ["Ana Vargas", "ana@zolmyra.ai", "Supervisor"],
+                  ["Luis Peña", "luis@zolmyra.ai", "Agente"],
+                ] satisfies ReadonlyArray<readonly [string, string, string]>
+              ).map(([name, email, role]) => (
                 <div className="flex items-center gap-3 border-b border-border/60 p-4" key={email}>
                   <span className="grid size-9 place-items-center rounded-full bg-secondary text-xs">
                     {name.slice(0, 2)}
@@ -230,12 +235,14 @@ function Configuracion() {
           )}
           {section === "integraciones" && (
             <section className="grid gap-4 sm:grid-cols-2">
-              {[
-                [Bot, "OpenAI", "Respuestas, resumen y clasificación"],
-                [Database, "Base de datos", "Persistencia multiempresa"],
-                [Plug, "N8N", "Automatizaciones y webhooks"],
-                [KeyRound, "Meta for Developers", "Embedded Signup y Cloud API"],
-              ].map(([Icon, title, detail]) => (
+              {(
+                [
+                  [Bot, "OpenAI", "Respuestas, resumen y clasificación"],
+                  [Database, "Base de datos", "Persistencia multiempresa"],
+                  [Plug, "N8N", "Automatizaciones y webhooks"],
+                  [KeyRound, "Meta for Developers", "Embedded Signup y Cloud API"],
+                ] satisfies ReadonlyArray<readonly [LucideIcon, string, string]>
+              ).map(([Icon, title, detail]) => (
                 <article className="panel p-5" key={String(title)}>
                   <Icon className="size-5 text-primary" />
                   <h2 className="mt-4 font-semibold">{title}</h2>

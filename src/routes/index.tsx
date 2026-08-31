@@ -42,7 +42,7 @@ const tooltipStyle = {
 };
 
 function Dashboard() {
-  const maxEmbudo = embudo[0].valor;
+  const maxEmbudo = embudo[0]?.valor ?? 1;
 
   return (
     <AppShell
