@@ -19,6 +19,9 @@ import {
   LogOut,
   Building2,
   ChevronDown,
+  UserPlus,
+  BriefcaseBusiness,
+  UserRoundPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -35,6 +38,51 @@ const nav = [
   { to: "/oportunidades", label: "Oportunidades", icon: Target },
   { to: "/reportes", label: "Reportes", icon: BarChart3 },
   { to: "/configuracion", label: "Configuración", icon: Settings },
+] as const;
+
+const quickActions = [
+  {
+    to: "/contactos",
+    label: "Nuevo contacto",
+    description: "Añadir una persona o empresa",
+    icon: UserRoundPlus,
+  },
+  {
+    to: "/leads",
+    label: "Nuevo lead",
+    description: "Registrar una oportunidad inicial",
+    icon: KanbanSquare,
+  },
+  {
+    to: "/oportunidades",
+    label: "Nueva oportunidad",
+    description: "Crear una negociación comercial",
+    icon: BriefcaseBusiness,
+  },
+  {
+    to: "/automatizaciones",
+    label: "Nueva automatización",
+    description: "Diseñar un flujo de trabajo",
+    icon: Workflow,
+  },
+  {
+    to: "/chatbot",
+    label: "Configurar chatbot",
+    description: "Crear mensajes y reglas",
+    icon: Bot,
+  },
+  {
+    to: "/configuracion",
+    label: "Nueva empresa",
+    description: "Crear otro espacio de trabajo",
+    icon: Building2,
+  },
+  {
+    to: "/configuracion",
+    label: "Invitar usuario",
+    description: "Agregar una persona al equipo",
+    icon: UserPlus,
+  },
 ] as const;
 
 export function AppShell({
@@ -56,6 +104,7 @@ export function AppShell({
   const { user, ready, signOut } = useAuth();
   const { current, organizations, switchOrganization } = useOrganization();
   const [orgMenu, setOrgMenu] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
 
   useEffect(() => {
     if (ready && !user) void navigate({ to: "/login" });
@@ -237,10 +286,62 @@ export function AppShell({
               <span className="absolute right-2 top-2 size-1.5 rounded-full bg-destructive" />
             </button>
             {actions ?? (
-              <button className="inline-flex items-center gap-2 rounded-lg bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-90">
-                <Plus className="size-4" />
-                <span className="hidden sm:inline">Nuevo</span>
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setQuickOpen((value) => !value)}
+                  aria-expanded={quickOpen}
+                  aria-haspopup="menu"
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-90"
+                >
+                  <Plus className="size-4" />
+                  <span className="hidden sm:inline">Nuevo</span>
+                  <ChevronDown className="size-3.5" />
+                </button>
+                {quickOpen && (
+                  <>
+                    <button
+                      className="fixed inset-0 z-30 cursor-default"
+                      onClick={() => setQuickOpen(false)}
+                      aria-label="Cerrar menú de creación"
+                    />
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-full z-40 mt-2 w-[310px] overflow-hidden rounded-xl border border-border bg-popover p-2 shadow-2xl"
+                    >
+                      <div className="px-3 py-2">
+                        <p className="text-xs font-bold">Creación rápida</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Empresa activa: {current.name}
+                        </p>
+                      </div>
+                      <div className="max-h-[420px] overflow-y-auto">
+                        {quickActions.map((action, index) => {
+                          const Icon = action.icon;
+                          return (
+                            <Link
+                              key={`${action.label}-${index}`}
+                              to={action.to}
+                              onClick={() => setQuickOpen(false)}
+                              role="menuitem"
+                              className="flex items-center gap-3 rounded-lg p-3 transition hover:bg-muted"
+                            >
+                              <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10">
+                                <Icon className="size-4 text-primary" />
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block text-sm font-semibold">{action.label}</span>
+                                <span className="block truncate text-[11px] text-muted-foreground">
+                                  {action.description}
+                                </span>
+                              </span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </header>
