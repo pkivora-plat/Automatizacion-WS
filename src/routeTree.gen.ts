@@ -11,11 +11,13 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AutomatizacionesRouteImport } from './routes/automatizaciones'
+import { Route as ChatbotRouteImport } from './routes/chatbot'
 import { Route as ConfiguracionRouteImport } from './routes/configuracion'
 import { Route as ContactosRouteImport } from './routes/contactos'
 import { Route as ConversacionesRouteImport } from './routes/conversaciones'
 import { Route as IaRouteImport } from './routes/ia'
 import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as OportunidadesRouteImport } from './routes/oportunidades'
 import { Route as ReportesRouteImport } from './routes/reportes'
 
@@ -27,6 +29,11 @@ const IndexRoute = IndexRouteImport.update({
 const AutomatizacionesRoute = AutomatizacionesRouteImport.update({
   id: '/automatizaciones',
   path: '/automatizaciones',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatbotRoute = ChatbotRouteImport.update({
+  id: '/chatbot',
+  path: '/chatbot',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConfiguracionRoute = ConfiguracionRouteImport.update({
@@ -54,6 +61,11 @@ const LeadsRoute = LeadsRouteImport.update({
   path: '/leads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OportunidadesRoute = OportunidadesRouteImport.update({
   id: '/oportunidades',
   path: '/oportunidades',
@@ -68,22 +80,26 @@ const ReportesRoute = ReportesRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/automatizaciones': typeof AutomatizacionesRoute
+  '/chatbot': typeof ChatbotRoute
   '/configuracion': typeof ConfiguracionRoute
   '/contactos': typeof ContactosRoute
   '/conversaciones': typeof ConversacionesRoute
   '/ia': typeof IaRoute
   '/leads': typeof LeadsRoute
+  '/login': typeof LoginRoute
   '/oportunidades': typeof OportunidadesRoute
   '/reportes': typeof ReportesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/automatizaciones': typeof AutomatizacionesRoute
+  '/chatbot': typeof ChatbotRoute
   '/configuracion': typeof ConfiguracionRoute
   '/contactos': typeof ContactosRoute
   '/conversaciones': typeof ConversacionesRoute
   '/ia': typeof IaRoute
   '/leads': typeof LeadsRoute
+  '/login': typeof LoginRoute
   '/oportunidades': typeof OportunidadesRoute
   '/reportes': typeof ReportesRoute
 }
@@ -91,11 +107,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/automatizaciones': typeof AutomatizacionesRoute
+  '/chatbot': typeof ChatbotRoute
   '/configuracion': typeof ConfiguracionRoute
   '/contactos': typeof ContactosRoute
   '/conversaciones': typeof ConversacionesRoute
   '/ia': typeof IaRoute
   '/leads': typeof LeadsRoute
+  '/login': typeof LoginRoute
   '/oportunidades': typeof OportunidadesRoute
   '/reportes': typeof ReportesRoute
 }
@@ -104,33 +122,39 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/automatizaciones'
+    | '/chatbot'
     | '/configuracion'
     | '/contactos'
     | '/conversaciones'
     | '/ia'
     | '/leads'
+    | '/login'
     | '/oportunidades'
     | '/reportes'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/automatizaciones'
+    | '/chatbot'
     | '/configuracion'
     | '/contactos'
     | '/conversaciones'
     | '/ia'
     | '/leads'
+    | '/login'
     | '/oportunidades'
     | '/reportes'
   id:
     | '__root__'
     | '/'
     | '/automatizaciones'
+    | '/chatbot'
     | '/configuracion'
     | '/contactos'
     | '/conversaciones'
     | '/ia'
     | '/leads'
+    | '/login'
     | '/oportunidades'
     | '/reportes'
   fileRoutesById: FileRoutesById
@@ -138,11 +162,13 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AutomatizacionesRoute: typeof AutomatizacionesRoute
+  ChatbotRoute: typeof ChatbotRoute
   ConfiguracionRoute: typeof ConfiguracionRoute
   ContactosRoute: typeof ContactosRoute
   ConversacionesRoute: typeof ConversacionesRoute
   IaRoute: typeof IaRoute
   LeadsRoute: typeof LeadsRoute
+  LoginRoute: typeof LoginRoute
   OportunidadesRoute: typeof OportunidadesRoute
   ReportesRoute: typeof ReportesRoute
 }
@@ -161,6 +187,13 @@ declare module '@tanstack/react-router' {
       path: '/automatizaciones'
       fullPath: '/automatizaciones'
       preLoaderRoute: typeof AutomatizacionesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chatbot': {
+      id: '/chatbot'
+      path: '/chatbot'
+      fullPath: '/chatbot'
+      preLoaderRoute: typeof ChatbotRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/configuracion': {
@@ -198,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/oportunidades': {
       id: '/oportunidades'
       path: '/oportunidades'
@@ -218,11 +258,13 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AutomatizacionesRoute: AutomatizacionesRoute,
+  ChatbotRoute: ChatbotRoute,
   ConfiguracionRoute: ConfiguracionRoute,
   ContactosRoute: ContactosRoute,
   ConversacionesRoute: ConversacionesRoute,
   IaRoute: IaRoute,
   LeadsRoute: LeadsRoute,
+  LoginRoute: LoginRoute,
   OportunidadesRoute: OportunidadesRoute,
   ReportesRoute: ReportesRoute,
 }

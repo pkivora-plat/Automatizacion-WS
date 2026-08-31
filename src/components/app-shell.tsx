@@ -1,5 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -15,8 +15,11 @@ import {
   Menu,
   X,
   Plus,
+  Bot,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -24,6 +27,7 @@ const nav = [
   { to: "/leads", label: "Leads", icon: KanbanSquare },
   { to: "/conversaciones", label: "Conversaciones", icon: MessageCircle, badge: "12" },
   { to: "/ia", label: "Inteligencia IA", icon: Sparkles },
+  { to: "/chatbot", label: "Constructor de bot", icon: Bot },
   { to: "/automatizaciones", label: "Automatizaciones", icon: Workflow },
   { to: "/oportunidades", label: "Oportunidades", icon: Target },
   { to: "/reportes", label: "Reportes", icon: BarChart3 },
@@ -45,6 +49,20 @@ export function AppShell({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const { user, ready, signOut } = useAuth();
+
+  useEffect(() => {
+    if (ready && !user) void navigate({ to: "/login" });
+  }, [ready, user, navigate]);
+
+  if (!ready || !user) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background">
+        <div className="size-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -121,13 +139,20 @@ export function AppShell({
         </div>
 
         <div className="flex items-center gap-3 border-t border-sidebar-border px-4 py-4">
-          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-secondary text-xs font-semibold">
-            RE
+          <div className="grid size-9 shrink-0 place-items-center rounded-full bg-secondary text-xs font-semibold uppercase">
+            {user.name.slice(0, 2)}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium">Ricky E.</p>
-            <p className="truncate text-[11px] text-muted-foreground">Administrador</p>
+            <p className="truncate capitalize text-sm font-medium">{user.name}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{user.role}</p>
           </div>
+          <button
+            onClick={signOut}
+            className="ml-auto rounded-lg p-2 text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+            aria-label="Cerrar sesión"
+          >
+            <LogOut className="size-4" />
+          </button>
         </div>
       </aside>
 
