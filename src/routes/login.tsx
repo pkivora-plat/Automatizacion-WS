@@ -106,6 +106,12 @@ function Login() {
           <p className="mt-2 text-sm text-muted-foreground">
             Administra conversaciones, equipos y automatizaciones desde un solo lugar.
           </p>
+          {configured && (
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-success/30 bg-success/10 px-3 py-1.5 text-xs font-medium text-success">
+              <CheckCircle2 className="size-3.5" />
+              Supabase conectado · Paso 1 activo
+            </div>
+          )}
           <form className="mt-8 space-y-5" onSubmit={submit}>
             <label className="block text-sm font-medium">
               Correo electrónico
