@@ -34,6 +34,7 @@ export type OrganizationRow = {
   business_data: Json;
   plan: PlanTier;
   plan_limits: Json;
+  status: "onboarding" | "active" | "suspended";
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -44,6 +45,41 @@ export type OrganizationMemberRow = {
   user_id: string;
   role: AppRole;
   active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+export type PricingTierRow = {
+  id: string;
+  organization_id: string;
+  name: string;
+  min_weight: number;
+  max_weight: number;
+  indicative_price: number;
+  currency: string;
+  active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+};
+export type WorkflowTemplateRow = {
+  id: string;
+  template_key: string;
+  name: string;
+  description: string | null;
+  definition: Json;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+export type AutomationDefinitionRow = {
+  id: string;
+  organization_id: string;
+  name: string;
+  trigger_type: string;
+  definition: Json;
+  version: number;
+  active: boolean;
+  created_by: string;
   created_at: string;
   updated_at: string;
 };
@@ -274,6 +310,9 @@ export type Database = {
       products: Table<ProductRow>;
       product_variants: Table<ProductVariantRow>;
       product_images: Table<ProductImageRow>;
+      pricing_tiers: Table<PricingTierRow>;
+      workflow_templates: Table<WorkflowTemplateRow>;
+      automation_definitions: Table<AutomationDefinitionRow>;
       shipping_methods: Table<ShippingMethodRow>;
       payment_methods: Table<PaymentMethodRow>;
       closers: Table<CloserRow>;
@@ -329,6 +368,44 @@ export type Database = {
         Returns: OrderRow;
       };
       claim_order: { Args: { p_order_id: string }; Returns: OrderRow };
+      is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+      admin_list_organizations: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          id: string;
+          name: string;
+          slug: string;
+          status: "onboarding" | "active" | "suspended";
+          plan: PlanTier;
+          member_count: number;
+          contact_count: number;
+          lead_count: number;
+          order_count: number;
+          created_at: string;
+        }[];
+      };
+      admin_create_organization: {
+        Args: {
+          p_name: string;
+          p_slug: string;
+          p_timezone?: string;
+          p_owner_email?: string | null;
+        };
+        Returns: Json;
+      };
+      admin_update_organization: {
+        Args: {
+          p_organization_id: string;
+          p_status: string;
+          p_plan: PlanTier;
+          p_plan_limits?: Json;
+        };
+        Returns: OrganizationRow;
+      };
+      admin_create_doradito_example: {
+        Args: Record<PropertyKey, never>;
+        Returns: OrganizationRow;
+      };
     };
     Enums: {
       app_role: AppRole;

@@ -6,6 +6,7 @@ type Value = {
   user: SessionUser | null;
   ready: boolean;
   configured: boolean;
+  platformAdmin: boolean;
   signIn: (e: string, p: string) => Promise<void>;
   signUp: (n: string, o: string, e: string, p: string) => Promise<boolean>;
   requestPasswordReset: (e: string) => Promise<void>;
@@ -17,6 +18,7 @@ const Context = createContext<Value | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [ready, setReady] = useState(false);
+  const [platformAdmin, setPlatformAdmin] = useState(false);
   const configured = isSupabaseConfigured();
   useEffect(() => {
     const c = getSupabaseBrowserClient();
@@ -29,6 +31,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u = data.user;
       if (!u) {
         setUser(null);
+        setPlatformAdmin(false);
         setReady(true);
         return;
       }
@@ -38,6 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: u.email ?? "",
         name: p?.full_name ?? u.user_metadata["full_name"] ?? u.email?.split("@")[0] ?? "Usuario",
       });
+      const adminResult = await c.rpc("is_platform_admin");
+      setPlatformAdmin(adminResult.error ? false : Boolean(adminResult.data));
       setReady(true);
     };
     void sync();
@@ -54,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       ready,
       configured,
+      platformAdmin,
       async signIn(email, password) {
         const { error } = await client().auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw toAppError(error, "No fue posible iniciar sesión.");
@@ -87,10 +93,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async signOut() {
         await client().auth.signOut();
         setUser(null);
+        setPlatformAdmin(false);
         window.location.assign("/login");
       },
     }),
-    [user, ready, configured],
+    [user, ready, configured, platformAdmin],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

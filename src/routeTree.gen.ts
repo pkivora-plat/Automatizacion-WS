@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AutomatizacionesRouteImport } from './routes/automatizaciones'
 import { Route as ChatbotRouteImport } from './routes/chatbot'
 import { Route as ClosersRouteImport } from './routes/closers'
@@ -27,6 +28,11 @@ import { Route as ReportesRouteImport } from './routes/reportes'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AutomatizacionesRoute = AutomatizacionesRouteImport.update({
@@ -97,6 +103,7 @@ const ReportesRoute = ReportesRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/automatizaciones': typeof AutomatizacionesRoute
   '/chatbot': typeof ChatbotRoute
   '/closers': typeof ClosersRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/automatizaciones': typeof AutomatizacionesRoute
   '/chatbot': typeof ChatbotRoute
   '/closers': typeof ClosersRoute
@@ -130,6 +138,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin': typeof AdminRoute
   '/automatizaciones': typeof AutomatizacionesRoute
   '/chatbot': typeof ChatbotRoute
   '/closers': typeof ClosersRoute
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin'
     | '/automatizaciones'
     | '/chatbot'
     | '/closers'
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin'
     | '/automatizaciones'
     | '/chatbot'
     | '/closers'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin'
     | '/automatizaciones'
     | '/chatbot'
     | '/closers'
@@ -197,6 +209,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminRoute: typeof AdminRoute
   AutomatizacionesRoute: typeof AutomatizacionesRoute
   ChatbotRoute: typeof ChatbotRoute
   ClosersRoute: typeof ClosersRoute
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/automatizaciones': {
@@ -317,6 +337,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminRoute: AdminRoute,
   AutomatizacionesRoute: AutomatizacionesRoute,
   ChatbotRoute: ChatbotRoute,
   ClosersRoute: ClosersRoute,

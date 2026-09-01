@@ -32,6 +32,7 @@ export type Organization = {
   businessData: Json;
   plan: string;
   planCode: PlanTier;
+  status: "onboarding" | "active" | "suspended";
   role: string;
   roleCode: AppRole;
 };
@@ -51,6 +52,7 @@ const empty: Organization = {
   businessData: {},
   plan: "Starter",
   planCode: "starter",
+  status: "active",
   role: "Agente",
   roleCode: "agent",
 };
@@ -115,7 +117,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     const ids = memberships.data.map((member) => member.organization_id);
     const result = await client
       .from("organizations")
-      .select("id,name,slug,timezone,business_data,plan")
+      .select("id,name,slug,timezone,business_data,plan,status")
       .in("id", ids)
       .is("deleted_at", null);
     if (result.error) throw toAppError(result.error, "No fue posible cargar las empresas.");
@@ -129,6 +131,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
         businessData: organization.business_data,
         plan: planLabels[organization.plan],
         planCode: organization.plan,
+        status: organization.status,
         role: roleLabels[membership.role],
         roleCode: membership.role,
       };
@@ -188,6 +191,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
           businessData: data.business_data,
           plan: planLabels[data.plan],
           planCode: data.plan,
+          status: data.status,
           role: "Administrador",
           roleCode: "admin",
         };

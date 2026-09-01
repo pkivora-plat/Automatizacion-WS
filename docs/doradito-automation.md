@@ -1,4 +1,8 @@
-# DORADITO — automatización de ventas
+# DORADITO — empresa de ejemplo y automatización de ventas
+
+DORADITO es un tenant independiente administrado por ZOLMYRA, no un módulo global ni datos
+compartidos entre clientes. Su flujo sirve como plantilla reutilizable: cada organización que lo
+adopte tendrá su propia copia, configuración, precios, catálogo y ejecuciones.
 
 ## Objetivo
 

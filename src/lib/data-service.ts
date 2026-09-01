@@ -2,6 +2,7 @@ import { getSupabaseBrowserClient } from "./supabase/client";
 import { toAppError } from "./supabase/errors";
 import type {
   AppRole,
+  AutomationDefinitionRow,
   ContactRow,
   LeadRow,
   LeadStage,
@@ -10,10 +11,12 @@ import type {
   OrderRow,
   OrderStatus,
   PaymentMethodRow,
+  PricingTierRow,
   ProductImageRow,
   ProductRow,
   ProductVariantRow,
   ShippingMethodRow,
+  WorkflowTemplateRow,
   CloserRow,
 } from "./supabase/database.types";
 
@@ -258,6 +261,76 @@ export async function listProducts(organizationId: string) {
       "No fue posible cargar el catálogo.",
     );
   return { products: products.data, variants: variants.data, images: images.data };
+}
+export async function listPricingTiers(organizationId: string) {
+  const result = await client()
+    .from("pricing_tiers")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("active", true)
+    .order("min_weight");
+  if (result.error)
+    throw toAppError(result.error, "No fue posible cargar los precios configurados.");
+  return result.data;
+}
+export async function listAutomationDefinitions(organizationId: string) {
+  const [definitions, templates] = await Promise.all([
+    client()
+      .from("automation_definitions")
+      .select("*")
+      .eq("organization_id", organizationId)
+      .order("updated_at", { ascending: false }),
+    client().from("workflow_templates").select("*").eq("active", true).order("name"),
+  ]);
+  if (definitions.error || templates.error)
+    throw toAppError(
+      definitions.error ?? templates.error!,
+      "No fue posible cargar las automatizaciones.",
+    );
+  return { definitions: definitions.data, templates: templates.data };
+}
+export async function setAutomationActive(organizationId: string, id: string, active: boolean) {
+  const result = await client()
+    .from("automation_definitions")
+    .update({ active })
+    .eq("id", id)
+    .eq("organization_id", organizationId)
+    .select()
+    .single();
+  if (result.error) throw toAppError(result.error, "No fue posible actualizar la automatización.");
+  return result.data;
+}
+export async function savePricingTier(
+  organizationId: string,
+  userId: string,
+  values: {
+    id?: string | undefined;
+    name: string;
+    minWeight: number;
+    maxWeight: number;
+    indicativePrice: number;
+  },
+) {
+  const payload: Partial<PricingTierRow> = {
+    organization_id: organizationId,
+    name: values.name.trim(),
+    min_weight: values.minWeight,
+    max_weight: values.maxWeight,
+    indicative_price: values.indicativePrice,
+    currency: "DOP",
+    active: true,
+    ...(values.id ? {} : { created_by: userId }),
+  };
+  const query = values.id
+    ? client()
+        .from("pricing_tiers")
+        .update(payload)
+        .eq("id", values.id)
+        .eq("organization_id", organizationId)
+    : client().from("pricing_tiers").insert(payload);
+  const result = await query.select().single();
+  if (result.error) throw toAppError(result.error, "No fue posible guardar el rango de precio.");
+  return result.data;
 }
 export async function saveProduct(
   organizationId: string,
@@ -582,6 +655,7 @@ export async function updateOrderNotes(organizationId: string, orderId: string, 
 
 export type {
   AppRole,
+  AutomationDefinitionRow,
   ContactRow,
   LeadRow,
   LeadStage,
@@ -589,7 +663,9 @@ export type {
   ProductRow,
   ProductVariantRow,
   ProductImageRow,
+  PricingTierRow,
   ShippingMethodRow,
+  WorkflowTemplateRow,
   PaymentMethodRow,
   OrderRow,
   OrderStatus,

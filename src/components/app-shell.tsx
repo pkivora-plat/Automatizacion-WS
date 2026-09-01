@@ -25,6 +25,7 @@ import {
   Gem,
   ShoppingBag,
   Headphones,
+  Crown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -43,6 +44,7 @@ const nav = [
   { to: "/pedidos", label: "Pedidos", icon: ShoppingBag },
   { to: "/closers", label: "Closers", icon: Headphones },
   { to: "/reportes", label: "Reportes", icon: BarChart3 },
+  { to: "/admin", label: "Administración global", icon: Crown, platformOnly: true },
   { to: "/configuracion", label: "Configuración", icon: Settings },
 ] as const;
 
@@ -107,7 +109,7 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
-  const { user, ready, signOut } = useAuth();
+  const { user, ready, platformAdmin, signOut } = useAuth();
   const { current, organizations, switchOrganization } = useOrganization();
   const [orgMenu, setOrgMenu] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -206,26 +208,28 @@ export function AppShell({
           <p className="px-3 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             Operación
           </p>
-          {nav.map((item) => {
-            const active = pathname === item.to;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setOpen(false)}
-                className={cn(
-                  "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_2px_0_0_0_var(--primary)]"
-                    : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
-                )}
-              >
-                <Icon className={cn("size-[18px]", active && "text-primary")} />
-                <span className="truncate">{item.label}</span>
-              </Link>
-            );
-          })}
+          {nav
+            .filter((item) => !("platformOnly" in item && item.platformOnly) || platformAdmin)
+            .map((item) => {
+              const active = pathname === item.to;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-[inset_2px_0_0_0_var(--primary)]"
+                      : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                  )}
+                >
+                  <Icon className={cn("size-[18px]", active && "text-primary")} />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
         </nav>
 
         <div className="m-3 rounded-xl border border-border bg-[var(--gradient-surface)] p-4">

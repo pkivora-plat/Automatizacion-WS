@@ -18,13 +18,16 @@ import {
 import {
   deleteProductImage,
   getProductImageUrl,
+  listPricingTiers,
   listProducts,
+  savePricingTier,
   saveProduct,
   saveVariant,
   uploadProductImages,
   type ProductImageRow,
   type ProductRow,
   type ProductVariantRow,
+  type PricingTierRow,
 } from "@/lib/data-service";
 import { useAuth } from "@/lib/auth";
 import { useOrganization } from "@/lib/organization";
@@ -61,17 +64,32 @@ const variantSchema = z
     message: "Debe ser igual o mayor al peso mínimo.",
   });
 type VariantValues = z.infer<typeof variantSchema>;
+const pricingSchema = z
+  .object({
+    name: z.string().trim().min(2),
+    minWeight: z.coerce.number().positive(),
+    maxWeight: z.coerce.number().positive(),
+    indicativePrice: z.coerce.number().min(0),
+  })
+  .refine((value) => isValidWeightRange(value.minWeight, value.maxWeight), {
+    path: ["maxWeight"],
+    message: "Rango de peso inválido.",
+  });
+type PricingValues = z.infer<typeof pricingSchema>;
 function Productos() {
   const { user } = useAuth();
   const { current } = useOrganization();
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [variants, setVariants] = useState<ProductVariantRow[]>([]);
   const [images, setImages] = useState<ProductImageRow[]>([]);
+  const [tiers, setTiers] = useState<PricingTierRow[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [productOpen, setProductOpen] = useState(false);
   const [variantProduct, setVariantProduct] = useState<ProductRow | null>(null);
   const [editing, setEditing] = useState<ProductRow | null>(null);
+  const [tierEditing, setTierEditing] = useState<PricingTierRow | null>(null);
+  const [tierOpen, setTierOpen] = useState(false);
   const canManage = canManageCatalog(current.roleCode);
   const productForm = useForm<ProductValues>({
     resolver: zodResolver(productSchema),
@@ -96,14 +114,22 @@ function Productos() {
       indicativePrice: 0,
     },
   });
+  const pricingForm = useForm<PricingValues>({
+    resolver: zodResolver(pricingSchema),
+    defaultValues: { name: "", minWeight: 5.1, maxWeight: 5.6, indicativePrice: 0 },
+  });
   const load = async () => {
     if (!current.id) return;
     setLoading(true);
     try {
-      const data = await listProducts(current.id);
+      const [data, priceData] = await Promise.all([
+        listProducts(current.id),
+        listPricingTiers(current.id),
+      ]);
       setProducts(data.products);
       setVariants(data.variants);
       setImages(data.images);
+      setTiers(priceData);
       const entries = await Promise.all(
         data.images.map(
           async (image) => [image.id, await getProductImageUrl(image.storage_path)] as const,
@@ -173,9 +199,34 @@ function Productos() {
       toast.error(error instanceof Error ? error.message : "No fue posible cargar las imágenes.");
     }
   }
+  function openTier(item?: PricingTierRow) {
+    setTierEditing(item ?? null);
+    pricingForm.reset(
+      item
+        ? {
+            name: item.name,
+            minWeight: Number(item.min_weight),
+            maxWeight: Number(item.max_weight),
+            indicativePrice: Number(item.indicative_price),
+          }
+        : { name: "", minWeight: 5.1, maxWeight: 5.6, indicativePrice: 0 },
+    );
+    setTierOpen(true);
+  }
+  async function submitTier(values: PricingValues) {
+    if (!user) return;
+    try {
+      await savePricingTier(current.id, user.id, { id: tierEditing?.id, ...values });
+      toast.success("Rango de precio guardado.");
+      setTierOpen(false);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No fue posible guardar el precio.");
+    }
+  }
   return (
     <AppShell
-      title="Catálogo DORADITO"
+      title="Catálogo de productos"
       subtitle={`Productos y variantes de ${current.name}`}
       actions={
         <button disabled={!canManage} onClick={() => startProduct()} className={submitClass}>
@@ -188,6 +239,48 @@ function Productos() {
         El precio final puede variar según los gramos reales correspondientes a la medida del
         anillo.
       </div>
+      <section className="panel p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">Rangos de precios</h2>
+            <p className="text-xs text-muted-foreground">
+              Configuración exclusiva de {current.name}; no está escrita permanentemente en el
+              frontend.
+            </p>
+          </div>
+          {canManage && (
+            <button
+              onClick={() => openTier()}
+              className="rounded-lg border border-border px-3 py-2 text-xs font-semibold"
+            >
+              <Plus className="mr-1 inline size-4" />
+              Agregar rango
+            </button>
+          )}
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {tiers.map((tier) => (
+            <button
+              onClick={() => canManage && openTier(tier)}
+              className="rounded-xl border border-border p-4 text-left"
+              key={tier.id}
+            >
+              <p className="font-semibold">{tier.name}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {tier.min_weight}–{tier.max_weight} g
+              </p>
+              <p className="mt-2 text-lg font-bold">
+                RD${Number(tier.indicative_price).toLocaleString("es-DO")}
+              </p>
+            </button>
+          ))}
+          {tiers.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Esta empresa aún no ha configurado rangos.
+            </p>
+          )}
+        </div>
+      </section>
       {loading ? (
         <LoadingState />
       ) : products.length === 0 ? (
@@ -342,6 +435,48 @@ function Productos() {
           <div className="sm:col-span-2 flex justify-end">
             <button disabled={productForm.formState.isSubmitting} className={submitClass}>
               Guardar producto
+            </button>
+          </div>
+        </form>
+      </FormModal>
+      <FormModal
+        open={tierOpen}
+        title={tierEditing ? "Editar rango de precio" : "Nuevo rango de precio"}
+        onClose={() => setTierOpen(false)}
+      >
+        <form onSubmit={pricingForm.handleSubmit(submitTier)} className="grid gap-4 sm:grid-cols-2">
+          <Field label="Nombre">
+            <input {...pricingForm.register("name")} className={inputClass} />
+          </Field>
+          <Field label="Precio orientativo">
+            <input
+              {...pricingForm.register("indicativePrice")}
+              type="number"
+              min="0"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Peso mínimo">
+            <input
+              {...pricingForm.register("minWeight")}
+              type="number"
+              min="0"
+              step="0.1"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Peso máximo" error={pricingForm.formState.errors.maxWeight?.message}>
+            <input
+              {...pricingForm.register("maxWeight")}
+              type="number"
+              min="0"
+              step="0.1"
+              className={inputClass}
+            />
+          </Field>
+          <div className="sm:col-span-2 flex justify-end">
+            <button disabled={pricingForm.formState.isSubmitting} className={submitClass}>
+              Guardar rango
             </button>
           </div>
         </form>
