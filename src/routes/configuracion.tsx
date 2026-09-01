@@ -1,340 +1,684 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
-  Bot,
   Building2,
   CheckCircle2,
-  ChevronRight,
-  CircleAlert,
-  Database,
-  KeyRound,
+  Copy,
+  CreditCard,
   MessageCircle,
-  Phone,
-  Plug,
+  PackageCheck,
+  Plus,
   ShieldCheck,
   Users,
-  X,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/app-shell";
-import { useOrganization } from "@/lib/organization";
+import { Field, FormModal, inputClass, submitClass, textareaClass } from "@/components/form-modal";
+import { useAuth } from "@/lib/auth";
+import { useOrganization, type OrganizationMember } from "@/lib/organization";
+import {
+  listCommerceSettings,
+  savePaymentMethod,
+  saveShippingMethod,
+  type AppRole,
+  type PaymentMethodRow,
+  type ShippingMethodRow,
+} from "@/lib/data-service";
 
 export const Route = createFileRoute("/configuracion")({
   head: () => ({ meta: [{ title: "Configuración — ZOLMYRA AI OS" }] }),
   component: Configuracion,
 });
-const sections = [
-  ["empresas", "Empresas", Building2],
-  ["whatsapp", "WhatsApp Business", MessageCircle],
-  ["equipo", "Equipo y permisos", Users],
-  ["integraciones", "Integraciones", Plug],
-  ["seguridad", "Seguridad", ShieldCheck],
-] as const;
-
+type Section = "companies" | "team" | "commerce" | "integrations";
+const roles: Record<AppRole, string> = {
+  admin: "Administrador",
+  supervisor: "Supervisor",
+  agent: "Agente",
+  closer: "Closer",
+};
 function Configuracion() {
-  const [section, setSection] = useState<(typeof sections)[number][0]>("empresas");
-  const [wizard, setWizard] = useState(false);
-  const [newOrganization, setNewOrganization] = useState("");
-  const { organizations, current, switchOrganization, createOrganization } = useOrganization();
-  const metaReady = Boolean(
-    import.meta.env["VITE_META_APP_ID"] && import.meta.env["VITE_META_CONFIG_ID"],
-  );
+  const { user } = useAuth();
+  const org = useOrganization();
+  const { current } = org;
+  const [section, setSection] = useState<Section>("companies");
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
+  const [shipping, setShipping] = useState<ShippingMethodRow[]>([]);
+  const [payments, setPayments] = useState<PaymentMethodRow[]>([]);
+  const [modal, setModal] = useState<"company" | "invite" | "shipping" | "payment" | null>(null);
+  const [inviteLink, setInviteLink] = useState("");
+  const [company, setCompany] = useState({
+    name: "",
+    slug: "",
+    timezone: "America/Santo_Domingo",
+    tradeName: "",
+    address: "",
+  });
+  const [newCompany, setNewCompany] = useState({ name: "", timezone: "America/Santo_Domingo" });
+  const [invite, setInvite] = useState({ email: "", role: "agent" as AppRole });
+  const [ship, setShip] = useState({
+    name: "",
+    provinces: "",
+    fee: 0,
+    estimatedTime: "",
+    instructions: "",
+  });
+  const [payment, setPayment] = useState({
+    name: "",
+    methodType: "cash" as PaymentMethodRow["method_type"],
+    bankName: "",
+    accountHolder: "",
+    accountType: "",
+    accountLast4: "",
+  });
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    const data =
+      current.businessData &&
+      typeof current.businessData === "object" &&
+      !Array.isArray(current.businessData)
+        ? current.businessData
+        : {};
+    setCompany({
+      name: current.name,
+      slug: current.slug,
+      timezone: current.timezone,
+      tradeName: String(data["trade_name"] ?? ""),
+      address: String(data["address"] ?? ""),
+    });
+  }, [current]);
+  async function loadTeam() {
+    try {
+      setMembers(await org.listMembers());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No fue posible cargar el equipo.");
+    }
+  }
+  async function loadCommerce() {
+    try {
+      const data = await listCommerceSettings(current.id);
+      setShipping(data.shipping);
+      setPayments(data.payment);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "No fue posible cargar la configuración comercial.",
+      );
+    }
+  }
+  useEffect(() => {
+    if (!current.id) return;
+    if (section === "team") void loadTeam();
+    if (section === "commerce") void loadCommerce();
+  }, [section, current.id]);
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("create") === "organization") {
+      setSection("companies");
+      setModal("company");
+    }
+    if (query.get("create") === "invite") {
+      setSection("team");
+      setModal("invite");
+    }
+  }, []);
+  async function run(action: () => Promise<void>) {
+    setSaving(true);
+    try {
+      await action();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "No fue posible completar la operación.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
   return (
-    <AppShell
-      title="Configuración"
-      subtitle="Administra canales, equipo y seguridad de tu organización"
-    >
-      <div className="grid gap-5 lg:grid-cols-[240px_1fr]">
+    <AppShell title="Configuración" subtitle={`Administración segura de ${current.name}`}>
+      <div className="grid gap-5 lg:grid-cols-[230px_1fr]">
         <aside className="panel h-fit p-2">
-          {sections.map(([id, label, Icon]) => (
+          {(
+            [
+              ["companies", "Empresas", Building2],
+              ["team", "Equipo y roles", Users],
+              ["commerce", "Envíos y pagos", CreditCard],
+              ["integrations", "Integraciones", ShieldCheck],
+            ] as const
+          ).map(([id, label, Icon]) => (
             <button
               key={id}
               onClick={() => setSection(id)}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm transition ${section === id ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-surface-2"}`}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left text-sm ${section === id ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted"}`}
             >
               <Icon className="size-4" />
               {label}
-              <ChevronRight className="ml-auto size-4" />
             </button>
           ))}
         </aside>
-        <div className="space-y-5">
-          {section === "empresas" && (
+        <main className="space-y-5">
+          {section === "companies" && (
             <>
               <section className="panel p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-semibold">Empresa activa</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Estos datos son independientes por organización.
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-success/10 px-3 py-1 text-xs text-success">
+                    <CheckCircle2 className="mr-1 inline size-4" />
+                    Activa
+                  </span>
+                </div>
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void run(async () => {
+                      await org.updateOrganization({
+                        name: company.name,
+                        slug: company.slug,
+                        timezone: company.timezone,
+                        businessData: { trade_name: company.tradeName, address: company.address },
+                      });
+                      toast.success("Empresa actualizada.");
+                    });
+                  }}
+                  className="mt-5 grid gap-4 sm:grid-cols-2"
+                >
+                  <Field label="Nombre">
+                    <input
+                      value={company.name}
+                      onChange={(e) => setCompany({ ...company, name: e.target.value })}
+                      className={inputClass}
+                      required
+                    />
+                  </Field>
+                  <Field label="Slug">
+                    <input
+                      value={company.slug}
+                      onChange={(e) => setCompany({ ...company, slug: e.target.value })}
+                      pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                      className={inputClass}
+                      required
+                    />
+                  </Field>
+                  <Field label="Zona horaria">
+                    <input
+                      value={company.timezone}
+                      onChange={(e) => setCompany({ ...company, timezone: e.target.value })}
+                      className={inputClass}
+                      required
+                    />
+                  </Field>
+                  <Field label="Nombre comercial">
+                    <input
+                      value={company.tradeName}
+                      onChange={(e) => setCompany({ ...company, tradeName: e.target.value })}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <Field label="Dirección">
+                    <input
+                      value={company.address}
+                      onChange={(e) => setCompany({ ...company, address: e.target.value })}
+                      className={inputClass}
+                    />
+                  </Field>
+                  <div className="flex items-end justify-end">
+                    <button
+                      disabled={saving || current.roleCode !== "admin"}
+                      className={submitClass}
+                    >
+                      Guardar empresa
+                    </button>
+                  </div>
+                </form>
+              </section>
+              <section className="panel p-5">
+                <div className="flex items-center justify-between">
                   <div>
                     <h2 className="font-semibold">Espacios de trabajo</h2>
                     <p className="text-xs text-muted-foreground">
-                      Cada empresa mantiene su configuración, equipo y datos separados.
+                      Cambiar de empresa recarga todos los módulos.
                     </p>
                   </div>
-                  <span className="rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-xs text-primary">
-                    {organizations.length} {organizations.length === 1 ? "empresa" : "empresas"}
-                  </span>
-                </div>
-                <div className="mt-5 space-y-3">
-                  {organizations.map((org) => (
-                    <article
-                      key={org.id}
-                      className={`flex flex-wrap items-center gap-3 rounded-xl border p-4 ${org.id === current.id ? "border-primary/40 bg-primary/5" : "border-border"}`}
-                    >
-                      <span className="grid size-10 place-items-center rounded-xl bg-secondary font-bold">
-                        {org.name.slice(0, 1)}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold">{org.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          /{org.slug} · Plan {org.plan}
-                        </p>
-                      </div>
-                      <span className="rounded-full border border-border px-3 py-1 text-xs">
-                        {org.role}
-                      </span>
-                      {org.id === current.id ? (
-                        <span className="flex items-center gap-1 text-xs text-success">
-                          <CheckCircle2 className="size-4" />
-                          Activa
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => switchOrganization(org.id)}
-                          className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:text-primary"
-                        >
-                          Cambiar
-                        </button>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              </section>
-              <section className="panel p-5">
-                <h2 className="font-semibold">Crear otra empresa</h2>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Se creará un espacio independiente con configuración propia.
-                </p>
-                <form
-                  className="mt-4 flex flex-col gap-3 sm:flex-row"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!newOrganization.trim()) return;
-                    createOrganization(newOrganization);
-                    setNewOrganization("");
-                  }}
-                >
-                  <input
-                    value={newOrganization}
-                    onChange={(event) => setNewOrganization(event.target.value)}
-                    placeholder="Nombre de la empresa"
-                    className="h-11 flex-1 rounded-lg border border-border bg-surface-2 px-3 text-sm outline-none focus:border-primary"
-                  />
-                  <button className="rounded-lg bg-brand-gradient px-5 py-2.5 text-sm font-semibold">
-                    Crear espacio
-                  </button>
-                </form>
-              </section>
-            </>
-          )}
-          {section === "whatsapp" && (
-            <>
-              <section className="panel-glow overflow-hidden p-6">
-                <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                  <span className="grid size-14 shrink-0 place-items-center rounded-2xl bg-success/15">
-                    <MessageCircle className="size-7 text-success" />
-                  </span>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg font-semibold">Conecta tu WhatsApp Business</h2>
-                      <span className="rounded-full border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] text-warning">
-                        Pendiente
-                      </span>
-                    </div>
-                    <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-                      Vincula tu cuenta mediante el proceso oficial de Meta. Zolmyra nunca
-                      solicitará tu contraseña de Facebook.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setWizard(true)}
-                    className="rounded-xl bg-success px-5 py-3 text-sm font-bold text-success-foreground transition hover:opacity-90"
-                  >
-                    Conectar WhatsApp
+                  <button onClick={() => setModal("company")} className={submitClass}>
+                    <Plus className="mr-2 size-4" />
+                    Nueva empresa
                   </button>
                 </div>
-              </section>
-              <section className="grid gap-4 md:grid-cols-3">
-                {(
-                  [
-                    [Building2, "Empresa de Meta", "Sin conectar"],
-                    [MessageCircle, "Cuenta de WhatsApp", "Sin conectar"],
-                    [Phone, "Número comercial", "Sin registrar"],
-                  ] satisfies ReadonlyArray<readonly [LucideIcon, string, string]>
-                ).map(([Icon, title, status]) => (
-                  <article className="panel p-5" key={String(title)}>
-                    <Icon className="size-5 text-muted-foreground" />
-                    <p className="mt-4 text-sm font-semibold">{title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{status}</p>
-                  </article>
-                ))}
-              </section>
-              <section className="panel p-5">
-                <h2 className="font-semibold">Antes de conectar</h2>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {[
-                    "Acceso administrativo al negocio de Meta",
-                    "Número disponible y acceso para verificarlo",
-                    "Autenticación de dos factores activa",
-                    "Datos legales y perfil comercial actualizados",
-                  ].map((item) => (
-                    <p
-                      className="flex gap-2 rounded-lg bg-surface-2 p-3 text-xs text-muted-foreground"
-                      key={item}
+                <div className="mt-4 space-y-2">
+                  {org.organizations.map((item) => (
+                    <button
+                      onClick={() => org.switchOrganization(item.id)}
+                      key={item.id}
+                      className={`flex w-full items-center rounded-xl border p-4 text-left ${item.id === current.id ? "border-primary/40 bg-primary/5" : "border-border"}`}
                     >
-                      <CheckCircle2 className="size-4 shrink-0 text-success" />
-                      {item}
-                    </p>
+                      <Building2 className="mr-3 size-5 text-primary" />
+                      <span className="flex-1">
+                        <strong className="block text-sm">{item.name}</strong>
+                        <small className="text-muted-foreground">
+                          /{item.slug} · {item.plan}
+                        </small>
+                      </span>
+                      <span className="text-xs">{item.role}</span>
+                    </button>
                   ))}
                 </div>
               </section>
             </>
           )}
-          {section === "equipo" && (
+          {section === "team" && (
             <section className="panel overflow-hidden">
               <header className="flex items-center justify-between border-b border-border p-5">
                 <div>
                   <h2 className="font-semibold">Miembros del equipo</h2>
                   <p className="text-xs text-muted-foreground">
-                    Controla el acceso por rol y organización.
+                    Los cambios de acceso quedan auditados.
                   </p>
                 </div>
-                <button className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold">
-                  Invitar usuario
-                </button>
+                {current.roleCode === "admin" && (
+                  <button
+                    onClick={() => {
+                      setInviteLink("");
+                      setModal("invite");
+                    }}
+                    className={submitClass}
+                  >
+                    <Plus className="mr-2 size-4" />
+                    Invitar
+                  </button>
+                )}
               </header>
-              {(
-                [
-                  ["Ricky E.", "rickit60-ctrl@users.noreply.github.com", "Administrador"],
-                  ["Ana Vargas", "ana@zolmyra.ai", "Supervisor"],
-                  ["Luis Peña", "luis@zolmyra.ai", "Agente"],
-                ] satisfies ReadonlyArray<readonly [string, string, string]>
-              ).map(([name, email, role]) => (
-                <div className="flex items-center gap-3 border-b border-border/60 p-4" key={email}>
-                  <span className="grid size-9 place-items-center rounded-full bg-secondary text-xs">
-                    {name.slice(0, 2)}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{name}</p>
-                    <p className="truncate text-xs text-muted-foreground">{email}</p>
+              {members.length === 0 ? (
+                <p className="p-8 text-center text-sm text-muted-foreground">
+                  No hay miembros visibles.
+                </p>
+              ) : (
+                members.map((member) => (
+                  <div
+                    className="flex flex-wrap items-center gap-3 border-b border-border/60 p-4"
+                    key={member.userId}
+                  >
+                    <span className="grid size-9 place-items-center rounded-full bg-secondary text-xs">
+                      {member.fullName.slice(0, 2).toUpperCase()}
+                    </span>
+                    <div className="min-w-52 flex-1">
+                      <p className="text-sm font-medium">{member.fullName}</p>
+                      <p className="text-xs text-muted-foreground">{member.email}</p>
+                    </div>
+                    <select
+                      value={member.role}
+                      disabled={current.roleCode !== "admin"}
+                      onChange={(event) =>
+                        void run(async () => {
+                          await org.setMemberAccess(
+                            member.userId,
+                            event.target.value as AppRole,
+                            member.active,
+                          );
+                          await loadTeam();
+                          toast.success("Rol actualizado.");
+                        })
+                      }
+                      className={`${inputClass} w-44`}
+                    >
+                      {Object.entries(roles).map(([value, label]) => (
+                        <option value={value} key={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      disabled={current.roleCode !== "admin" || member.userId === user?.id}
+                      onClick={() =>
+                        void run(async () => {
+                          await org.setMemberAccess(member.userId, member.role, !member.active);
+                          await loadTeam();
+                          toast.success("Acceso actualizado.");
+                        })
+                      }
+                      className={`rounded-full px-3 py-2 text-xs ${member.active ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"}`}
+                    >
+                      {member.active ? "Activo" : "Inactivo"}
+                    </button>
                   </div>
-                  <span className="rounded-full border border-border px-3 py-1 text-xs">
-                    {role}
-                  </span>
-                </div>
-              ))}
+                ))
+              )}
             </section>
           )}
-          {section === "integraciones" && (
-            <section className="grid gap-4 sm:grid-cols-2">
+          {section === "commerce" && (
+            <>
+              <section className="panel p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-semibold">Transportistas</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Provincias, tarifa y tiempo estimado.
+                    </p>
+                  </div>
+                  <button onClick={() => setModal("shipping")} className={submitClass}>
+                    <Plus className="mr-2 size-4" />
+                    Agregar
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {shipping.map((item) => (
+                    <article className="rounded-xl border border-border p-4" key={item.id}>
+                      <PackageCheck className="size-5 text-primary" />
+                      <h3 className="mt-2 font-semibold">{item.name}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {item.provinces.join(", ") || "Todas las provincias"}
+                      </p>
+                      <p className="mt-2 text-sm">
+                        RD${Number(item.fee).toLocaleString("es-DO")} ·{" "}
+                        {item.estimated_time || "Tiempo por confirmar"}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+              <section className="panel p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-semibold">Métodos de pago</h2>
+                    <p className="text-xs text-muted-foreground">
+                      Solo se muestran los últimos cuatro dígitos.
+                    </p>
+                  </div>
+                  <button onClick={() => setModal("payment")} className={submitClass}>
+                    <Plus className="mr-2 size-4" />
+                    Agregar
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {payments.map((item) => (
+                    <article className="rounded-xl border border-border p-4" key={item.id}>
+                      <CreditCard className="size-5 text-primary" />
+                      <h3 className="mt-2 font-semibold">{item.name}</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {item.bank_name || "Pago directo"}
+                        {item.account_last4 ? ` · •••• ${item.account_last4}` : ""}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
+          {section === "integrations" && (
+            <section className="grid gap-4 md:grid-cols-3">
               {(
                 [
-                  [Bot, "OpenAI", "Respuestas, resumen y clasificación"],
-                  [Database, "Base de datos", "Persistencia multiempresa"],
-                  [Plug, "N8N", "Automatizaciones y webhooks"],
-                  [KeyRound, "Meta for Developers", "Embedded Signup y Cloud API"],
+                  [MessageCircle, "Meta / WhatsApp", "Pendiente de credenciales"],
+                  [ShieldCheck, "Inteligencia artificial", "Fuera de esta fase"],
+                  [Building2, "N8N", "Se configurará después de los procesos internos"],
                 ] satisfies ReadonlyArray<readonly [LucideIcon, string, string]>
               ).map(([Icon, title, detail]) => (
                 <article className="panel p-5" key={String(title)}>
-                  <Icon className="size-5 text-primary" />
-                  <h2 className="mt-4 font-semibold">{title}</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-                  <button className="mt-5 w-full rounded-lg border border-border py-2 text-xs font-semibold">
-                    Configurar
-                  </button>
+                  <Icon className="size-5 text-warning" />
+                  <h2 className="mt-3 font-semibold">{String(title)}</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">{String(detail)}</p>
+                  <span className="mt-4 inline-block rounded-full bg-warning/10 px-3 py-1 text-xs text-warning">
+                    Pendiente
+                  </span>
                 </article>
               ))}
             </section>
           )}
-          {section === "seguridad" && (
-            <section className="panel p-5">
-              <ShieldCheck className="size-6 text-success" />
-              <h2 className="mt-4 font-semibold">Protección de la cuenta</h2>
-              <div className="mt-5 space-y-3">
-                {[
-                  "Autenticación de dos factores",
-                  "Registro de sesiones y actividad",
-                  "Cifrado de credenciales de integraciones",
-                  "Aislamiento de datos por organización",
-                ].map((item, i) => (
-                  <div
-                    className="flex items-center justify-between rounded-lg border border-border p-4 text-sm"
-                    key={item}
-                  >
-                    <span>{item}</span>
-                    <span className={`text-xs ${i < 2 ? "text-warning" : "text-success"}`}>
-                      {i < 2 ? "Por configurar" : "Preparado"}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
+        </main>
       </div>
-      {wizard && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/85 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg rounded-2xl border border-border bg-surface p-6 shadow-2xl">
-            <button
-              onClick={() => setWizard(false)}
-              className="absolute right-4 top-4 text-muted-foreground"
-            >
-              <X className="size-5" />
+      <FormModal open={modal === "company"} title="Nueva empresa" onClose={() => setModal(null)}>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run(async () => {
+              await org.createOrganization(newCompany.name, newCompany.timezone);
+              setModal(null);
+              setNewCompany({ name: "", timezone: "America/Santo_Domingo" });
+              toast.success("Empresa creada.");
+            });
+          }}
+          className="space-y-4"
+        >
+          <Field label="Nombre">
+            <input
+              value={newCompany.name}
+              onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
+              minLength={2}
+              className={inputClass}
+              required
+            />
+          </Field>
+          <Field label="Zona horaria">
+            <input
+              value={newCompany.timezone}
+              onChange={(e) => setNewCompany({ ...newCompany, timezone: e.target.value })}
+              className={inputClass}
+              required
+            />
+          </Field>
+          <div className="flex justify-end">
+            <button disabled={saving} className={submitClass}>
+              Crear empresa
             </button>
-            <span className="grid size-12 place-items-center rounded-xl bg-success/15">
-              <MessageCircle className="size-6 text-success" />
-            </span>
-            <h2 className="mt-5 text-xl font-bold">Conectar con Meta</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              El proceso oficial abrirá una ventana segura de Meta para seleccionar tu empresa,
-              cuenta y número de WhatsApp.
-            </p>
-            <div className="mt-5 space-y-3">
-              {[
-                "Inicia sesión directamente en Meta",
-                "Selecciona o crea tu cuenta de WhatsApp",
-                "Verifica el número comercial",
-                "Autoriza a Zolmyra y envía una prueba",
-              ].map((step, i) => (
-                <div className="flex items-center gap-3 text-sm" key={step}>
-                  <span className="grid size-7 place-items-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-                    {i + 1}
-                  </span>
-                  {step}
-                </div>
-              ))}
-            </div>
-            {!metaReady && (
-              <p className="mt-5 flex gap-2 rounded-lg border border-warning/25 bg-warning/5 p-3 text-xs leading-relaxed text-muted-foreground">
-                <CircleAlert className="size-4 shrink-0 text-warning" />
-                La interfaz está lista, pero faltan META_APP_ID y META_CONFIG_ID. Se activará cuando
-                Meta apruebe la aplicación.
-              </p>
-            )}
-            <button
-              disabled={!metaReady}
-              className="mt-5 w-full rounded-xl bg-success py-3 text-sm font-bold text-success-foreground disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Continuar con Facebook
-            </button>
-            <Link
-              to="/chatbot"
-              onClick={() => setWizard(false)}
-              className="mt-3 block text-center text-xs font-semibold text-primary"
-            >
-              Configurar mi chatbot mientras tanto
-            </Link>
           </div>
-        </div>
-      )}
+        </form>
+      </FormModal>
+      <FormModal
+        open={modal === "invite"}
+        title="Invitar usuario"
+        description="Comparte el enlace generado con la persona invitada."
+        onClose={() => setModal(null)}
+      >
+        {inviteLink ? (
+          <div className="space-y-4">
+            <div className="break-all rounded-lg border border-border bg-muted p-3 text-xs">
+              {inviteLink}
+            </div>
+            <button
+              onClick={() => {
+                void navigator.clipboard.writeText(inviteLink);
+                toast.success("Enlace copiado.");
+              }}
+              className={submitClass}
+            >
+              <Copy className="mr-2 size-4" />
+              Copiar enlace
+            </button>
+          </div>
+        ) : (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void run(async () => {
+                const link = await org.inviteMember(invite.email, invite.role);
+                setInviteLink(link);
+                toast.success("Invitación creada.");
+              });
+            }}
+            className="space-y-4"
+          >
+            <Field label="Correo">
+              <input
+                type="email"
+                value={invite.email}
+                onChange={(e) => setInvite({ ...invite, email: e.target.value })}
+                className={inputClass}
+                required
+              />
+            </Field>
+            <Field label="Rol">
+              <select
+                value={invite.role}
+                onChange={(e) => setInvite({ ...invite, role: e.target.value as AppRole })}
+                className={inputClass}
+              >
+                {Object.entries(roles).map(([value, label]) => (
+                  <option value={value} key={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="flex justify-end">
+              <button disabled={saving} className={submitClass}>
+                Generar invitación
+              </button>
+            </div>
+          </form>
+        )}
+      </FormModal>
+      <FormModal
+        open={modal === "shipping"}
+        title="Nuevo transportista"
+        onClose={() => setModal(null)}
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run(async () => {
+              await saveShippingMethod(current.id, user!.id, ship);
+              await loadCommerce();
+              setModal(null);
+              toast.success("Transportista guardado.");
+            });
+          }}
+          className="grid gap-4 sm:grid-cols-2"
+        >
+          <Field label="Nombre">
+            <input
+              value={ship.name}
+              onChange={(e) => setShip({ ...ship, name: e.target.value })}
+              className={inputClass}
+              required
+            />
+          </Field>
+          <Field label="Tarifa">
+            <input
+              type="number"
+              min="0"
+              value={ship.fee}
+              onChange={(e) => setShip({ ...ship, fee: Number(e.target.value) })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Provincias separadas por coma">
+            <input
+              value={ship.provinces}
+              onChange={(e) => setShip({ ...ship, provinces: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Tiempo estimado">
+            <input
+              value={ship.estimatedTime}
+              onChange={(e) => setShip({ ...ship, estimatedTime: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Instrucciones">
+              <textarea
+                value={ship.instructions}
+                onChange={(e) => setShip({ ...ship, instructions: e.target.value })}
+                className={textareaClass}
+              />
+            </Field>
+          </div>
+          <div className="sm:col-span-2 flex justify-end">
+            <button disabled={saving} className={submitClass}>
+              Guardar
+            </button>
+          </div>
+        </form>
+      </FormModal>
+      <FormModal
+        open={modal === "payment"}
+        title="Nuevo método de pago"
+        description="No guardes el número completo; registra únicamente los últimos cuatro dígitos."
+        onClose={() => setModal(null)}
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run(async () => {
+              await savePaymentMethod(current.id, user!.id, payment);
+              await loadCommerce();
+              setModal(null);
+              toast.success("Método de pago guardado.");
+            });
+          }}
+          className="grid gap-4 sm:grid-cols-2"
+        >
+          <Field label="Nombre">
+            <input
+              value={payment.name}
+              onChange={(e) => setPayment({ ...payment, name: e.target.value })}
+              className={inputClass}
+              required
+            />
+          </Field>
+          <Field label="Tipo">
+            <select
+              value={payment.methodType}
+              onChange={(e) =>
+                setPayment({
+                  ...payment,
+                  methodType: e.target.value as PaymentMethodRow["method_type"],
+                })
+              }
+              className={inputClass}
+            >
+              <option value="cash">Efectivo</option>
+              <option value="transfer">Transferencia</option>
+              <option value="other">Otro</option>
+            </select>
+          </Field>
+          <Field label="Banco">
+            <input
+              value={payment.bankName}
+              onChange={(e) => setPayment({ ...payment, bankName: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Titular">
+            <input
+              value={payment.accountHolder}
+              onChange={(e) => setPayment({ ...payment, accountHolder: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Tipo de cuenta">
+            <input
+              value={payment.accountType}
+              onChange={(e) => setPayment({ ...payment, accountType: e.target.value })}
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Últimos 4 dígitos">
+            <input
+              value={payment.accountLast4}
+              onChange={(e) =>
+                setPayment({
+                  ...payment,
+                  accountLast4: e.target.value.replace(/\D/g, "").slice(0, 4),
+                })
+              }
+              pattern="[0-9]{4}"
+              className={inputClass}
+            />
+          </Field>
+          <div className="sm:col-span-2 flex justify-end">
+            <button disabled={saving} className={submitClass}>
+              Guardar
+            </button>
+          </div>
+        </form>
+      </FormModal>
     </AppShell>
   );
 }

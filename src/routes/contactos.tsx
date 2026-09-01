@@ -1,150 +1,396 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { Download, Filter, Pencil, Plus, Search } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
+import { Archive, Download, FileUp, Pencil, Plus, Search, StickyNote } from "lucide-react";
+import { toast } from "sonner";
+import { z } from "zod";
 import { AppShell, StatusPill } from "@/components/app-shell";
-import { contactos, type Estado } from "@/lib/crm-data";
+import {
+  EmptyState,
+  Field,
+  FormModal,
+  LoadingState,
+  inputClass,
+  submitClass,
+  textareaClass,
+} from "@/components/form-modal";
+import {
+  addNote,
+  archiveContact,
+  listContacts,
+  listNotes,
+  saveContact,
+  type ContactRow,
+} from "@/lib/data-service";
+import { useAuth } from "@/lib/auth";
+import { useOrganization } from "@/lib/organization";
 
 export const Route = createFileRoute("/contactos")({
-  head: () => ({
-    meta: [
-      { title: "Contactos — ZOLMYRA AI OS" },
-      {
-        name: "description",
-        content: "Base de contactos con búsqueda, filtros por estado y fuente, edición y creación.",
-      },
-      { property: "og:title", content: "Contactos — ZOLMYRA AI OS" },
-      { property: "og:description", content: "Gestiona toda tu base comercial en un solo lugar." },
-    ],
-  }),
+  head: () => ({ meta: [{ title: "Contactos — ZOLMYRA AI OS" }] }),
   component: Contactos,
 });
-
-const estados: (Estado | "Todos")[] = ["Todos", "Activo", "Nuevo", "En seguimiento", "Inactivo"];
+const schema = z.object({
+  fullName: z.string().trim().min(2, "Escribe el nombre."),
+  company: z.string().optional(),
+  email: z.union([z.literal(""), z.string().email("Correo inválido.")]).optional(),
+  phone: z.string().optional(),
+  status: z.enum(["active", "new", "follow_up", "inactive"]),
+  source: z.string().optional(),
+});
+type Values = z.infer<typeof schema>;
+const statusLabels: Record<string, string> = {
+  active: "Activo",
+  new: "Nuevo",
+  follow_up: "En seguimiento",
+  inactive: "Inactivo",
+};
 
 function Contactos() {
-  const [q, setQ] = useState("");
-  const [estado, setEstado] = useState<Estado | "Todos">("Todos");
-
-  const filtrados = useMemo(
+  const { user } = useAuth();
+  const { current } = useOrganization();
+  const [items, setItems] = useState<ContactRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("all");
+  const [editing, setEditing] = useState<ContactRow | null>(null);
+  const [open, setOpen] = useState(false);
+  const [detail, setDetail] = useState<ContactRow | null>(null);
+  const [notes, setNotes] = useState<Awaited<ReturnType<typeof listNotes>>>([]);
+  const [note, setNote] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const form = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: { fullName: "", company: "", email: "", phone: "", status: "new", source: "" },
+  });
+  const load = async () => {
+    if (!current.id) return;
+    setLoading(true);
+    try {
+      setItems(await listContacts(current.id));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error al cargar contactos.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => {
+    void load();
+  }, [current.id]);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("create") === "contact") startCreate();
+  }, []);
+  const filtered = useMemo(
     () =>
-      contactos.filter((c) => {
-        const match = `${c.nombre} ${c.empresa} ${c.correo} ${c.telefono}`
-          .toLowerCase()
-          .includes(q.toLowerCase());
-        return match && (estado === "Todos" || c.estado === estado);
-      }),
-    [q, estado],
+      items.filter(
+        (item) =>
+          `${item.full_name} ${item.company ?? ""} ${item.email ?? ""} ${item.phone ?? ""}`
+            .toLowerCase()
+            .includes(query.toLowerCase()) &&
+          (status === "all" || item.status === status),
+      ),
+    [items, query, status],
   );
-
+  function startCreate() {
+    setEditing(null);
+    form.reset({ fullName: "", company: "", email: "", phone: "", status: "new", source: "" });
+    setOpen(true);
+  }
+  function startEdit(item: ContactRow) {
+    setEditing(item);
+    form.reset({
+      fullName: item.full_name,
+      company: item.company ?? "",
+      email: item.email ?? "",
+      phone: item.phone ?? "",
+      status: item.status as Values["status"],
+      source: item.source ?? "",
+    });
+    setOpen(true);
+  }
+  async function submit(values: Values) {
+    if (!user || !current.id) return;
+    try {
+      await saveContact(current.id, user.id, { id: editing?.id, ...values });
+      toast.success(editing ? "Contacto actualizado." : "Contacto creado.");
+      setOpen(false);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No fue posible guardar.");
+    }
+  }
+  async function openDetail(item: ContactRow) {
+    setDetail(item);
+    try {
+      setNotes(await listNotes(current.id, "contact", item.id));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No fue posible cargar las notas.");
+    }
+  }
+  async function createNote() {
+    if (!user || !detail || !note.trim()) return;
+    try {
+      await addNote(current.id, user.id, "contact", detail.id, note);
+      setNote("");
+      setNotes(await listNotes(current.id, "contact", detail.id));
+      toast.success("Nota guardada.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No fue posible guardar la nota.");
+    }
+  }
+  function exportCsv() {
+    const header = "nombre,empresa,correo,telefono,estado,fuente";
+    const rows = filtered.map((item) =>
+      [item.full_name, item.company, item.email, item.phone, item.status, item.source]
+        .map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`)
+        .join(","),
+    );
+    const url = URL.createObjectURL(
+      new Blob([`\uFEFF${[header, ...rows].join("\n")}`], { type: "text/csv;charset=utf-8" }),
+    );
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "contactos.csv";
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+  async function importCsv(file: File) {
+    if (!user) return;
+    try {
+      const lines = (await file.text()).split(/\r?\n/).filter(Boolean);
+      const headers =
+        lines
+          .shift()
+          ?.split(",")
+          .map((value) => value.trim().toLowerCase()) ?? [];
+      let count = 0;
+      for (const line of lines) {
+        const cells = line.split(",").map((value) => value.trim().replace(/^"|"$/g, ""));
+        const value = (key: string) => cells[headers.indexOf(key)] ?? "";
+        if (!value("nombre")) continue;
+        await saveContact(current.id, user.id, {
+          fullName: value("nombre"),
+          company: value("empresa"),
+          email: value("correo"),
+          phone: value("telefono"),
+          status: value("estado") || "new",
+          source: value("fuente"),
+        });
+        count++;
+      }
+      toast.success(`${count} contactos importados.`);
+      await load();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No fue posible importar el CSV.");
+    }
+  }
   return (
     <AppShell
       title="Contactos"
-      subtitle={`${contactos.length} contactos registrados · ${filtrados.length} visibles`}
+      subtitle={`${items.length} contactos en ${current.name}`}
       actions={
-        <button className="inline-flex items-center gap-2 rounded-lg bg-brand-gradient px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-[var(--shadow-glow)] transition hover:opacity-90">
-          <Plus className="size-4" />
-          <span className="hidden sm:inline">Crear contacto</span>
+        <button onClick={startCreate} className={submitClass}>
+          <Plus className="mr-2 size-4" />
+          Crear contacto
         </button>
       }
     >
       <div className="panel p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative min-w-[220px] flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="flex flex-wrap gap-3">
+          <div className="relative min-w-56 flex-1">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por nombre, empresa o correo…"
-              className="h-10 w-full rounded-lg border border-border bg-surface-2 pl-9 pr-3 text-sm outline-none focus:border-primary/60 focus:ring-2 focus:ring-ring/25"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Buscar contactos…"
+              className={`${inputClass} pl-9`}
             />
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Filter className="mr-1 size-4 text-muted-foreground" />
-            {estados.map((e) => (
-              <button
-                key={e}
-                onClick={() => setEstado(e)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                  estado === e
-                    ? "border-primary/40 bg-primary/15 text-primary"
-                    : "border-border text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {e}
-              </button>
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+            className={`${inputClass} w-auto`}
+          >
+            <option value="all">Todos los estados</option>
+            {Object.entries(statusLabels).map(([value, label]) => (
+              <option value={value} key={value}>
+                {label}
+              </option>
             ))}
-          </div>
-          <button className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground transition hover:text-foreground">
-            <Download className="size-4" /> Exportar
+          </select>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={(event) => event.target.files?.[0] && void importCsv(event.target.files[0])}
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            className="rounded-lg border border-border px-3 text-xs"
+          >
+            <FileUp className="mr-2 inline size-4" />
+            Importar
+          </button>
+          <button onClick={exportCsv} className="rounded-lg border border-border px-3 text-xs">
+            <Download className="mr-2 inline size-4" />
+            Exportar
           </button>
         </div>
       </div>
-
-      <div className="panel overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-sm">
+      {loading ? (
+        <LoadingState />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          title="No hay contactos"
+          detail="Crea el primer contacto de esta empresa. Los datos se guardarán en Supabase."
+          action={
+            <button onClick={startCreate} className={submitClass}>
+              Crear contacto
+            </button>
+          }
+        />
+      ) : (
+        <div className="panel overflow-x-auto">
+          <table className="w-full min-w-[900px] text-sm">
             <thead>
-              <tr className="border-b border-border bg-surface-2/60 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3 font-semibold">Nombre</th>
-                <th className="px-4 py-3 font-semibold">Empresa</th>
-                <th className="px-4 py-3 font-semibold">Teléfono</th>
-                <th className="px-4 py-3 font-semibold">Correo</th>
-                <th className="px-4 py-3 font-semibold">Estado</th>
-                <th className="px-4 py-3 font-semibold">Fuente</th>
-                <th className="px-4 py-3 font-semibold">Creación</th>
-                <th className="px-4 py-3 font-semibold">Última actividad</th>
-                <th className="px-4 py-3" />
+              <tr className="border-b border-border bg-surface-2 text-left text-xs text-muted-foreground">
+                {[
+                  "Nombre",
+                  "Empresa",
+                  "Teléfono",
+                  "Correo",
+                  "Estado",
+                  "Fuente",
+                  "Creación",
+                  "Acciones",
+                ].map((label) => (
+                  <th className="px-4 py-3" key={label}>
+                    {label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {filtrados.map((c) => (
-                <tr
-                  key={c.id}
-                  className="border-b border-border/60 transition hover:bg-surface-2/50"
-                >
+              {filtered.map((item) => (
+                <tr className="border-b border-border/60" key={item.id}>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-secondary text-[11px] font-semibold">
-                        {c.nombre
-                          .split(" ")
-                          .slice(0, 2)
-                          .map((n) => n[0])
-                          .join("")}
-                      </span>
-                      <div>
-                        <p className="font-medium">{c.nombre}</p>
-                        <p className="text-[11px] text-muted-foreground">{c.id}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.empresa}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.telefono}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.correo}</td>
-                  <td className="px-4 py-3">
-                    <StatusPill value={c.estado} />
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.fuente}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.creado}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.ultimaActividad}</td>
-                  <td className="px-4 py-3 text-right">
                     <button
-                      className="rounded-md border border-border p-1.5 text-muted-foreground transition hover:text-primary"
-                      aria-label={`Editar ${c.nombre}`}
+                      className="font-medium hover:text-primary"
+                      onClick={() => void openDetail(item)}
                     >
-                      <Pencil className="size-3.5" />
+                      {item.full_name}
                     </button>
+                  </td>
+                  <td className="px-4 text-muted-foreground">{item.company || "—"}</td>
+                  <td className="px-4 text-muted-foreground">{item.phone || "—"}</td>
+                  <td className="px-4 text-muted-foreground">{item.email || "—"}</td>
+                  <td className="px-4">
+                    <StatusPill value={statusLabels[item.status] ?? item.status} />
+                  </td>
+                  <td className="px-4 text-muted-foreground">{item.source || "—"}</td>
+                  <td className="px-4 text-muted-foreground">
+                    {new Date(item.created_at).toLocaleDateString("es-DO")}
+                  </td>
+                  <td className="px-4">
+                    <div className="flex gap-2">
+                      <button onClick={() => startEdit(item)} aria-label="Editar">
+                        <Pencil className="size-4" />
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (confirm(`¿Archivar a ${item.full_name}?`)) {
+                            await archiveContact(current.id, item.id);
+                            toast.success("Contacto archivado.");
+                            await load();
+                          }
+                        }}
+                        aria-label="Archivar"
+                      >
+                        <Archive className="size-4 text-destructive" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        {filtrados.length === 0 && (
-          <p className="p-8 text-center text-sm text-muted-foreground">
-            No se encontraron contactos con esos criterios.
-          </p>
-        )}
-      </div>
+      )}
+      <FormModal
+        open={open}
+        title={editing ? "Editar contacto" : "Nuevo contacto"}
+        onClose={() => setOpen(false)}
+      >
+        <form onSubmit={form.handleSubmit(submit)} className="grid gap-4 sm:grid-cols-2">
+          <Field label="Nombre completo" error={form.formState.errors.fullName?.message}>
+            <input {...form.register("fullName")} className={inputClass} />
+          </Field>
+          <Field label="Empresa">
+            <input {...form.register("company")} className={inputClass} />
+          </Field>
+          <Field label="Correo" error={form.formState.errors.email?.message}>
+            <input {...form.register("email")} type="email" className={inputClass} />
+          </Field>
+          <Field label="Teléfono">
+            <input {...form.register("phone")} className={inputClass} />
+          </Field>
+          <Field label="Estado">
+            <select {...form.register("status")} className={inputClass}>
+              {Object.entries(statusLabels).map(([value, label]) => (
+                <option value={value} key={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Fuente">
+            <input
+              {...form.register("source")}
+              className={inputClass}
+              placeholder="Web, referido…"
+            />
+          </Field>
+          <div className="sm:col-span-2 flex justify-end">
+            <button disabled={form.formState.isSubmitting} className={submitClass}>
+              Guardar contacto
+            </button>
+          </div>
+        </form>
+      </FormModal>
+      <FormModal
+        open={Boolean(detail)}
+        title={detail?.full_name ?? "Contacto"}
+        description="Notas internas del contacto"
+        onClose={() => setDetail(null)}
+      >
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              className={textareaClass}
+              placeholder="Escribe una nota…"
+            />
+            <button onClick={() => void createNote()} className={submitClass}>
+              <StickyNote className="mr-2 size-4" />
+              Guardar
+            </button>
+          </div>
+          {notes.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Todavía no hay notas.</p>
+          ) : (
+            notes.map((item) => (
+              <article className="rounded-lg border border-border p-3" key={item.id}>
+                <p className="text-sm">{item.body}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {new Date(item.created_at).toLocaleString("es-DO")}
+                </p>
+              </article>
+            ))
+          )}
+        </div>
+      </FormModal>
     </AppShell>
   );
 }

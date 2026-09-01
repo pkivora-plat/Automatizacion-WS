@@ -10,130 +10,248 @@ import {
 import { useAuth } from "./auth";
 import { getSupabaseBrowserClient } from "./supabase/client";
 import { toAppError } from "./supabase/errors";
-import type { AppRole, PlanTier } from "./supabase/database.types";
-const roles = {
+import type { AppRole, Json, PlanTier } from "./supabase/database.types";
+
+const roleLabels: Record<AppRole, string> = {
   admin: "Administrador",
   supervisor: "Supervisor",
   agent: "Agente",
   closer: "Closer",
-} as const;
-const plans = { starter: "Starter", growth: "Growth", enterprise: "Enterprise" } as const;
+};
+const planLabels: Record<PlanTier, string> = {
+  starter: "Starter",
+  growth: "Growth",
+  enterprise: "Enterprise",
+};
+
 export type Organization = {
   id: string;
   name: string;
   slug: string;
-  plan: (typeof plans)[PlanTier];
-  role: (typeof roles)[AppRole];
+  timezone: string;
+  businessData: Json;
+  plan: string;
+  planCode: PlanTier;
+  role: string;
+  roleCode: AppRole;
 };
-const empty: Organization = { id: "", name: "", slug: "", plan: "Starter", role: "Agente" };
+export type OrganizationMember = {
+  userId: string;
+  fullName: string;
+  email: string;
+  role: AppRole;
+  active: boolean;
+};
+
+const empty: Organization = {
+  id: "",
+  name: "",
+  slug: "",
+  timezone: "America/Santo_Domingo",
+  businessData: {},
+  plan: "Starter",
+  planCode: "starter",
+  role: "Agente",
+  roleCode: "agent",
+};
 type Value = {
   organizations: Organization[];
   current: Organization;
   ready: boolean;
   switchOrganization: (id: string) => void;
-  createOrganization: (name: string) => Promise<Organization>;
+  refresh: () => Promise<void>;
+  createOrganization: (name: string, timezone?: string) => Promise<Organization>;
+  updateOrganization: (values: {
+    name: string;
+    slug: string;
+    timezone: string;
+    businessData?: Json;
+  }) => Promise<void>;
+  listMembers: () => Promise<OrganizationMember[]>;
+  inviteMember: (email: string, role: AppRole) => Promise<string>;
+  setMemberAccess: (userId: string, role: AppRole, active: boolean) => Promise<void>;
 };
 const Context = createContext<Value | null>(null);
 const KEY = "zolmyra.current-organization";
+
 export function OrganizationProvider({ children }: { children: ReactNode }) {
   const { user, ready: authReady } = useAuth();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currentId, setCurrentId] = useState("");
   const [ready, setReady] = useState(false);
+
   const load = useCallback(async () => {
     if (!user) {
       setOrganizations([]);
+      setCurrentId("");
       setReady(true);
       return;
     }
-    const c = getSupabaseBrowserClient();
-    if (!c) {
+    const client = getSupabaseBrowserClient();
+    if (!client) {
       setReady(true);
       return;
     }
-    const { data: m, error } = await c
+    setReady(false);
+    let memberships = await client
       .from("organization_members")
       .select("organization_id,role")
       .eq("user_id", user.id)
       .eq("active", true);
-    if (error) {
-      console.error(error);
-      setReady(true);
-      return;
+    if (memberships.error)
+      throw toAppError(memberships.error, "No fue posible cargar tus empresas.");
+    if (memberships.data.length === 0) {
+      const provision = await client.rpc("ensure_user_workspace", { p_default_name: "Mi empresa" });
+      if (provision.error)
+        throw toAppError(provision.error, "Falta aplicar la migración de aprovisionamiento.");
+      memberships = await client
+        .from("organization_members")
+        .select("organization_id,role")
+        .eq("user_id", user.id)
+        .eq("active", true);
+      if (memberships.error)
+        throw toAppError(memberships.error, "No fue posible cargar tu empresa inicial.");
     }
-    const ids = m.map((x) => x.organization_id);
-    const result = ids.length
-      ? await c
-          .from("organizations")
-          .select("id,name,slug,plan")
-          .in("id", ids)
-          .is("deleted_at", null)
-      : { data: [], error: null };
-    if (result.error) {
-      console.error(result.error);
-      setReady(true);
-      return;
-    }
-    const next = result.data.map((o) => {
-      const member = m.find((x) => x.organization_id === o.id)!;
+    const ids = memberships.data.map((member) => member.organization_id);
+    const result = await client
+      .from("organizations")
+      .select("id,name,slug,timezone,business_data,plan")
+      .in("id", ids)
+      .is("deleted_at", null);
+    if (result.error) throw toAppError(result.error, "No fue posible cargar las empresas.");
+    const next = result.data.map((organization) => {
+      const membership = memberships.data.find((item) => item.organization_id === organization.id)!;
       return {
-        id: o.id,
-        name: o.name,
-        slug: o.slug,
-        plan: plans[o.plan],
-        role: roles[member.role],
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        timezone: organization.timezone,
+        businessData: organization.business_data,
+        plan: planLabels[organization.plan],
+        planCode: organization.plan,
+        role: roleLabels[membership.role],
+        roleCode: membership.role,
       };
     });
     setOrganizations(next);
     const saved = localStorage.getItem(KEY);
-    setCurrentId(next.some((o) => o.id === saved) ? saved! : (next[0]?.id ?? ""));
+    setCurrentId(next.some((item) => item.id === saved) ? saved! : (next[0]?.id ?? ""));
     setReady(true);
   }, [user]);
+
   useEffect(() => {
-    if (authReady) void load();
+    if (authReady)
+      void load().catch((error) => {
+        console.error(error);
+        setReady(true);
+      });
   }, [authReady, load]);
-  const current = organizations.find((o) => o.id === currentId) ?? organizations[0] ?? empty;
+  const current =
+    organizations.find((organization) => organization.id === currentId) ??
+    organizations[0] ??
+    empty;
+
   const value = useMemo<Value>(
     () => ({
       organizations,
       current,
       ready,
+      refresh: load,
       switchOrganization(id) {
-        if (organizations.some((o) => o.id === id)) {
-          setCurrentId(id);
-          localStorage.setItem(KEY, id);
-        }
+        if (!organizations.some((organization) => organization.id === id)) return;
+        setCurrentId(id);
+        localStorage.setItem(KEY, id);
       },
-      async createOrganization(name) {
-        const c = getSupabaseBrowserClient();
-        if (!c) throw new Error("Supabase no está configurado.");
+      async createOrganization(name, timezone = "America/Santo_Domingo") {
+        const client = getSupabaseBrowserClient();
+        if (!client) throw new Error("Supabase no está configurado.");
         const base = name
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/(^-|-$)/g, "");
-        const { data, error } = await c.rpc("create_organization", {
+        const { data, error } = await client.rpc("create_organization", {
           p_name: name.trim(),
           p_slug: `${base}-${crypto.randomUUID().slice(0, 8)}`,
+          p_timezone: timezone,
         });
         if (error) throw toAppError(error, "No fue posible crear la empresa.");
         await load();
+        localStorage.setItem(KEY, data.id);
+        setCurrentId(data.id);
         return {
           id: data.id,
           name: data.name,
           slug: data.slug,
-          plan: plans[data.plan],
+          timezone: data.timezone,
+          businessData: data.business_data,
+          plan: planLabels[data.plan],
+          planCode: data.plan,
           role: "Administrador",
+          roleCode: "admin",
         };
+      },
+      async updateOrganization(values) {
+        const client = getSupabaseBrowserClient();
+        if (!client || !current.id) throw new Error("No hay empresa activa.");
+        const { error } = await client
+          .from("organizations")
+          .update({
+            name: values.name.trim(),
+            slug: values.slug.trim().toLowerCase(),
+            timezone: values.timezone,
+            ...(values.businessData ? { business_data: values.businessData } : {}),
+          })
+          .eq("id", current.id);
+        if (error) throw toAppError(error, "No fue posible actualizar la empresa.");
+        await load();
+      },
+      async listMembers() {
+        const client = getSupabaseBrowserClient();
+        if (!client || !current.id) return [];
+        const { data, error } = await client.rpc("get_organization_members", {
+          p_organization_id: current.id,
+        });
+        if (error) throw toAppError(error, "No fue posible cargar el equipo.");
+        return data.map((member) => ({
+          userId: member.user_id,
+          fullName: member.full_name,
+          email: member.email,
+          role: member.role,
+          active: member.active,
+        }));
+      },
+      async inviteMember(email, role) {
+        const client = getSupabaseBrowserClient();
+        if (!client || !current.id) throw new Error("No hay empresa activa.");
+        const { data, error } = await client.rpc("create_invitation", {
+          p_organization_id: current.id,
+          p_email: email.trim(),
+          p_role: role,
+        });
+        if (error) throw toAppError(error, "No fue posible crear la invitación.");
+        return `${window.location.origin}/login?invite=${data}`;
+      },
+      async setMemberAccess(userId, role, active) {
+        const client = getSupabaseBrowserClient();
+        if (!client || !current.id) throw new Error("No hay empresa activa.");
+        const { error } = await client.rpc("set_member_access", {
+          p_organization_id: current.id,
+          p_user_id: userId,
+          p_role: role,
+          p_active: active,
+        });
+        if (error) throw toAppError(error, "No fue posible actualizar el miembro.");
       },
     }),
     [organizations, current, ready, load],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
+
 export function useOrganization() {
-  const v = useContext(Context);
-  if (!v) throw new Error("useOrganization debe utilizarse dentro de OrganizationProvider");
-  return v;
+  const value = useContext(Context);
+  if (!value) throw new Error("useOrganization debe utilizarse dentro de OrganizationProvider");
+  return value;
 }

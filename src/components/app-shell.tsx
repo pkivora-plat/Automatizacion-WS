@@ -22,6 +22,9 @@ import {
   UserPlus,
   BriefcaseBusiness,
   UserRoundPlus,
+  Gem,
+  ShoppingBag,
+  Headphones,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
@@ -31,54 +34,57 @@ const nav = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/contactos", label: "Contactos", icon: Users },
   { to: "/leads", label: "Leads", icon: KanbanSquare },
-  { to: "/conversaciones", label: "Conversaciones", icon: MessageCircle, badge: "12" },
-  { to: "/ia", label: "Inteligencia IA", icon: Sparkles },
+  { to: "/conversaciones", label: "Conversaciones", icon: MessageCircle },
+  { to: "/ia", label: "IA (pendiente)", icon: Sparkles },
   { to: "/chatbot", label: "Constructor de bot", icon: Bot },
-  { to: "/automatizaciones", label: "Automatizaciones", icon: Workflow },
+  { to: "/automatizaciones", label: "Automatizaciones (pendiente)", icon: Workflow },
   { to: "/oportunidades", label: "Oportunidades", icon: Target },
+  { to: "/productos", label: "Catálogo", icon: Gem },
+  { to: "/pedidos", label: "Pedidos", icon: ShoppingBag },
+  { to: "/closers", label: "Closers", icon: Headphones },
   { to: "/reportes", label: "Reportes", icon: BarChart3 },
   { to: "/configuracion", label: "Configuración", icon: Settings },
 ] as const;
 
 const quickActions = [
   {
-    to: "/contactos",
+    href: "/contactos?create=contact",
     label: "Nuevo contacto",
     description: "Añadir una persona o empresa",
     icon: UserRoundPlus,
   },
   {
-    to: "/leads",
+    href: "/leads?create=lead",
     label: "Nuevo lead",
     description: "Registrar una oportunidad inicial",
     icon: KanbanSquare,
   },
   {
-    to: "/oportunidades",
+    href: "/oportunidades?create=opportunity",
     label: "Nueva oportunidad",
     description: "Crear una negociación comercial",
     icon: BriefcaseBusiness,
   },
   {
-    to: "/automatizaciones",
-    label: "Nueva automatización",
-    description: "Diseñar un flujo de trabajo",
-    icon: Workflow,
+    href: "/pedidos?create=order",
+    label: "Nuevo pedido",
+    description: "Registrar una orden comercial",
+    icon: ShoppingBag,
   },
   {
-    to: "/chatbot",
-    label: "Configurar chatbot",
-    description: "Crear mensajes y reglas",
-    icon: Bot,
+    href: "/productos?create=product",
+    label: "Nuevo producto",
+    description: "Agregar un artículo al catálogo",
+    icon: Gem,
   },
   {
-    to: "/configuracion",
+    href: "/configuracion?create=organization",
     label: "Nueva empresa",
     description: "Crear otro espacio de trabajo",
     icon: Building2,
   },
   {
-    to: "/configuracion",
+    href: "/configuracion?create=invite",
     label: "Invitar usuario",
     description: "Agregar una persona al equipo",
     icon: UserPlus,
@@ -217,24 +223,16 @@ export function AppShell({
               >
                 <Icon className={cn("size-[18px]", active && "text-primary")} />
                 <span className="truncate">{item.label}</span>
-                {"badge" in item && item.badge ? (
-                  <span className="ml-auto rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                    {item.badge}
-                  </span>
-                ) : null}
               </Link>
             );
           })}
         </nav>
 
         <div className="m-3 rounded-xl border border-border bg-[var(--gradient-surface)] p-4">
-          <p className="text-xs font-semibold">Agente IA activo</p>
+          <p className="text-xs font-semibold">Supabase conectado</p>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-            84 conversaciones gestionadas hoy sin intervención humana.
+            Datos persistentes por organización. N8N, Meta e IA siguen pendientes.
           </p>
-          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted">
-            <div className="h-full w-[84%] rounded-full bg-brand-gradient" />
-          </div>
         </div>
 
         <div className="flex items-center gap-3 border-t border-sidebar-border px-4 py-4">
@@ -318,9 +316,9 @@ export function AppShell({
                         {quickActions.map((action, index) => {
                           const Icon = action.icon;
                           return (
-                            <Link
+                            <a
                               key={`${action.label}-${index}`}
-                              to={action.to}
+                              href={action.href}
                               onClick={() => setQuickOpen(false)}
                               role="menuitem"
                               className="flex items-center gap-3 rounded-lg p-3 transition hover:bg-muted"
@@ -334,7 +332,7 @@ export function AppShell({
                                   {action.description}
                                 </span>
                               </span>
-                            </Link>
+                            </a>
                           );
                         })}
                       </div>

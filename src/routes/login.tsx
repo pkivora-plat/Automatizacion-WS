@@ -23,26 +23,66 @@ export const Route = createFileRoute("/login")({
 });
 
 function Login() {
-  const { user, ready, configured, signIn, requestPasswordReset } = useAuth();
+  const {
+    user,
+    ready,
+    configured,
+    signIn,
+    signUp,
+    requestPasswordReset,
+    updatePassword,
+    acceptInvitation,
+  } = useAuth();
   const navigate = useNavigate();
+  const [mode, setMode] = useState<"login" | "register" | "update">("login");
+  const [name, setName] = useState("");
+  const [organization, setOrganization] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
   const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
-    if (ready && user) void navigate({ to: "/" });
-  }, [ready, user, navigate]);
+    const requestedMode = new URLSearchParams(window.location.search).get("mode");
+    if (requestedMode === "update-password") setMode("update");
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !user) return;
+    const invite = new URLSearchParams(window.location.search).get("invite");
+    void (async () => {
+      try {
+        if (invite) await acceptInvitation(invite);
+        await navigate({ to: invite ? "/configuracion" : "/" });
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "No fue posible aceptar la invitación.");
+      }
+    })();
+  }, [ready, user, navigate, acceptInvitation]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
+    setNotice("");
     setLoading(true);
     try {
-      await signIn(email, password);
-      await navigate({ to: "/" });
+      if (mode === "register") {
+        if (name.trim().length < 2 || organization.trim().length < 2)
+          throw new Error("Completa tu nombre y empresa.");
+        const confirmationRequired = await signUp(name, organization, email, password);
+        if (confirmationRequired)
+          setNotice("Cuenta creada. Revisa tu correo para confirmar el acceso.");
+      } else if (mode === "update") {
+        await updatePassword(password);
+        setNotice("Contraseña actualizada correctamente.");
+        await navigate({ to: "/" });
+      } else {
+        await signIn(email, password);
+        await navigate({ to: "/" });
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible iniciar sesión.");
     } finally {
@@ -101,8 +141,14 @@ function Login() {
             </span>
             <p className="font-display font-bold">ZOLMYRA AI OS</p>
           </div>
-          <p className="text-sm font-semibold text-primary">Bienvenido de nuevo</p>
-          <h2 className="mt-2 font-display text-3xl font-bold">Inicia sesión en tu cuenta</h2>
+          <p className="text-sm font-semibold text-primary">ZOLMYRA AI OS</p>
+          <h2 className="mt-2 font-display text-3xl font-bold">
+            {mode === "register"
+              ? "Crea tu cuenta"
+              : mode === "update"
+                ? "Nueva contraseña"
+                : "Inicia sesión en tu cuenta"}
+          </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Administra conversaciones, equipos y automatizaciones desde un solo lugar.
           </p>
@@ -113,20 +159,44 @@ function Login() {
             </div>
           )}
           <form className="mt-8 space-y-5" onSubmit={submit}>
-            <label className="block text-sm font-medium">
-              Correo electrónico
-              <div className="relative mt-2">
-                <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  autoComplete="email"
-                  autoFocus
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="nombre@empresa.com"
-                  className="h-12 w-full rounded-xl border border-border bg-surface pl-10 pr-4 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                />
+            {mode === "register" && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium">
+                  Nombre
+                  <input
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    className="mt-2 h-12 w-full rounded-xl border border-border bg-surface px-4 outline-none focus:border-primary"
+                    required
+                  />
+                </label>
+                <label className="block text-sm font-medium">
+                  Empresa
+                  <input
+                    value={organization}
+                    onChange={(event) => setOrganization(event.target.value)}
+                    className="mt-2 h-12 w-full rounded-xl border border-border bg-surface px-4 outline-none focus:border-primary"
+                    required
+                  />
+                </label>
               </div>
-            </label>
+            )}
+            {mode !== "update" && (
+              <label className="block text-sm font-medium">
+                Correo electrónico
+                <div className="relative mt-2">
+                  <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    autoComplete="email"
+                    autoFocus
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="nombre@empresa.com"
+                    className="h-12 w-full rounded-xl border border-border bg-surface pl-10 pr-4 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+                  />
+                </div>
+              </label>
+            )}
             <label className="block text-sm font-medium">
               Contraseña
               <div className="relative mt-2">
@@ -149,38 +219,40 @@ function Login() {
                 </button>
               </div>
             </label>
-            <div className="flex items-center justify-between text-xs">
-              <label className="flex items-center gap-2 text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="accent-primary"
-                />
-                Recordarme
-              </label>
-              <button
-                type="button"
-                className="font-semibold text-primary"
-                onClick={async () => {
-                  setError("");
-                  if (!email.includes("@")) {
-                    setError("Escribe tu correo para recuperar la contraseña.");
-                    return;
-                  }
-                  try {
-                    await requestPasswordReset(email);
-                    setError("Revisa tu correo para continuar con la recuperación.");
-                  } catch (cause) {
-                    setError(
-                      cause instanceof Error ? cause.message : "No fue posible enviar el correo.",
-                    );
-                  }
-                }}
-              >
-                ¿Olvidaste tu contraseña?
-              </button>
-            </div>
+            {mode === "login" && (
+              <div className="flex items-center justify-between text-xs">
+                <label className="flex items-center gap-2 text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    className="accent-primary"
+                  />
+                  Recordarme
+                </label>
+                <button
+                  type="button"
+                  className="font-semibold text-primary"
+                  onClick={async () => {
+                    setError("");
+                    if (!email.includes("@")) {
+                      setError("Escribe tu correo para recuperar la contraseña.");
+                      return;
+                    }
+                    try {
+                      await requestPasswordReset(email);
+                      setNotice("Revisa tu correo para continuar con la recuperación.");
+                    } catch (cause) {
+                      setError(
+                        cause instanceof Error ? cause.message : "No fue posible enviar el correo.",
+                      );
+                    }
+                  }}
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
+              </div>
+            )}
             {error && (
               <p
                 role="alert"
@@ -189,19 +261,42 @@ function Login() {
                 {error}
               </p>
             )}
+            {notice && (
+              <p className="rounded-lg border border-success/30 bg-success/10 p-3 text-xs text-success">
+                {notice}
+              </p>
+            )}
             <button
               disabled={loading || !configured}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient font-semibold shadow-[var(--shadow-glow)] transition hover:opacity-90 disabled:opacity-60"
             >
               {loading ? (
-                "Verificando…"
+                "Procesando…"
               ) : (
                 <>
-                  Iniciar sesión <ArrowRight className="size-4" />
+                  {mode === "register"
+                    ? "Crear cuenta"
+                    : mode === "update"
+                      ? "Guardar contraseña"
+                      : "Iniciar sesión"}{" "}
+                  <ArrowRight className="size-4" />
                 </>
               )}
             </button>
           </form>
+          {mode !== "update" && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode(mode === "login" ? "register" : "login");
+                setError("");
+                setNotice("");
+              }}
+              className="mt-5 w-full text-center text-xs font-semibold text-primary"
+            >
+              {mode === "login" ? "¿No tienes cuenta? Crear una" : "Ya tengo una cuenta"}
+            </button>
+          )}
           {!configured && (
             <div className="mt-6 rounded-xl border border-destructive/25 bg-destructive/5 p-3 text-xs text-destructive">
               Supabase no está configurado. Define las variables públicas del proyecto.

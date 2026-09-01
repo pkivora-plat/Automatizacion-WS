@@ -10,6 +10,7 @@ type Value = {
   signUp: (n: string, o: string, e: string, p: string) => Promise<boolean>;
   requestPasswordReset: (e: string) => Promise<void>;
   updatePassword: (p: string) => Promise<void>;
+  acceptInvitation: (token: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 const Context = createContext<Value | null>(null);
@@ -78,6 +79,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async updatePassword(password) {
         const { error } = await client().auth.updateUser({ password });
         if (error) throw toAppError(error, "No fue posible cambiar la contraseña.");
+      },
+      async acceptInvitation(token) {
+        const { error } = await client().rpc("accept_invitation", { p_token: token });
+        if (error) throw toAppError(error, "No fue posible aceptar la invitación.");
       },
       async signOut() {
         await client().auth.signOut();
