@@ -1,14 +1,3 @@
--- Zolmyra multi-tenant foundation. Execute through the selected PostgreSQL provider.
-create extension if not exists pgcrypto;
-create table organizations (id uuid primary key default gen_random_uuid(), name text not null, timezone text not null default 'America/La_Paz', created_at timestamptz not null default now());
-create table organization_members (organization_id uuid references organizations on delete cascade, user_id uuid not null, role text not null check (role in ('admin','supervisor','agent')), primary key (organization_id,user_id));
-create table whatsapp_connections (id uuid primary key default gen_random_uuid(), organization_id uuid not null references organizations on delete cascade, business_id text, waba_id text, phone_number_id text, display_phone text, encrypted_access_token text, status text not null default 'pending' check (status in ('pending','connected','error','disconnected')), token_expires_at timestamptz, created_at timestamptz not null default now(), unique(organization_id,phone_number_id));
-create table chatbot_configs (id uuid primary key default gen_random_uuid(), organization_id uuid not null references organizations on delete cascade unique, name text not null, tone text not null, welcome_message text not null, away_message text, objective text, instructions text, handoff_rules text, enabled boolean not null default false, updated_at timestamptz not null default now());
-create table knowledge_sources (id uuid primary key default gen_random_uuid(), organization_id uuid not null references organizations on delete cascade, title text not null, content text not null, status text not null default 'active', created_at timestamptz not null default now());
-create table contacts (id uuid primary key default gen_random_uuid(), organization_id uuid not null references organizations on delete cascade, name text not null, email text, phone text, company text, created_at timestamptz not null default now());
-create table conversations (id uuid primary key default gen_random_uuid(), organization_id uuid not null references organizations on delete cascade, contact_id uuid references contacts, channel text not null, external_id text, status text not null default 'open', assigned_user_id uuid, created_at timestamptz not null default now());
-create table messages (id uuid primary key default gen_random_uuid(), organization_id uuid not null references organizations on delete cascade, conversation_id uuid not null references conversations on delete cascade, external_id text, direction text not null check (direction in ('inbound','outbound')), type text not null default 'text', body text, delivery_status text, created_at timestamptz not null default now());
-create table audit_logs (id uuid primary key default gen_random_uuid(), organization_id uuid not null references organizations on delete cascade, actor_user_id uuid, action text not null, entity_type text not null, entity_id text, metadata jsonb not null default '{}', created_at timestamptz not null default now());
-create index contacts_org_idx on contacts(organization_id);
-create index conversations_org_idx on conversations(organization_id,created_at desc);
-create index messages_conversation_idx on messages(conversation_id,created_at);
+-- Canonical schema:
+-- ../supabase/migrations/20260831000000_saas_foundation.sql
+-- Apply it with Supabase CLI (`supabase db push`) or the Supabase SQL Editor.

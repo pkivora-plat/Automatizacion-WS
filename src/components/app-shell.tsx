@@ -243,7 +243,7 @@ export function AppShell({
           </div>
           <div className="min-w-0">
             <p className="truncate capitalize text-sm font-medium">{user.name}</p>
-            <p className="truncate text-[11px] text-muted-foreground">{user.role}</p>
+            <p className="truncate text-[11px] text-muted-foreground">{current.role}</p>
           </div>
           <button
             onClick={signOut}

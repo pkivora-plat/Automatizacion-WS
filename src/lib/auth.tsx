@@ -1,71 +1,96 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-
-export type SessionUser = {
-  id: string;
-  name: string;
-  email: string;
-  organization: string;
-  role: "Administrador" | "Supervisor" | "Agente";
-};
-
-type AuthContextValue = {
+import { getSupabaseBrowserClient, isSupabaseConfigured } from "./supabase/client";
+import { AppError, toAppError } from "./supabase/errors";
+export type SessionUser = { id: string; name: string; email: string };
+type Value = {
   user: SessionUser | null;
   ready: boolean;
-  signIn: (email: string, password: string, remember: boolean) => Promise<void>;
-  signOut: () => void;
+  configured: boolean;
+  signIn: (e: string, p: string) => Promise<void>;
+  signUp: (n: string, o: string, e: string, p: string) => Promise<boolean>;
+  requestPasswordReset: (e: string) => Promise<void>;
+  updatePassword: (p: string) => Promise<void>;
+  signOut: () => Promise<void>;
 };
-
-const AuthContext = createContext<AuthContextValue | null>(null);
-const SESSION_KEY = "zolmyra.session";
-
+const Context = createContext<Value | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [ready, setReady] = useState(false);
-
+  const configured = isSupabaseConfigured();
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY) ?? sessionStorage.getItem(SESSION_KEY);
-      if (raw) setUser(JSON.parse(raw) as SessionUser);
-    } finally {
+    const c = getSupabaseBrowserClient();
+    if (!c) {
       setReady(true);
+      return;
     }
+    const sync = async () => {
+      const { data } = await c.auth.getUser();
+      const u = data.user;
+      if (!u) {
+        setUser(null);
+        setReady(true);
+        return;
+      }
+      const { data: p } = await c.from("profiles").select("full_name").eq("id", u.id).maybeSingle();
+      setUser({
+        id: u.id,
+        email: u.email ?? "",
+        name: p?.full_name ?? u.user_metadata["full_name"] ?? u.email?.split("@")[0] ?? "Usuario",
+      });
+      setReady(true);
+    };
+    void sync();
+    const { data } = c.auth.onAuthStateChange(() => window.setTimeout(() => void sync(), 0));
+    return () => data.subscription.unsubscribe();
   }, []);
-
-  const value = useMemo<AuthContextValue>(
+  const client = () => {
+    const c = getSupabaseBrowserClient();
+    if (!c) throw new AppError("Supabase no está configurado.", "not_configured");
+    return c;
+  };
+  const value = useMemo<Value>(
     () => ({
       user,
       ready,
-      async signIn(email, password, remember) {
-        await new Promise((resolve) => setTimeout(resolve, 550));
-        if (!email.includes("@") || password.length < 6) {
-          throw new Error("Revisa tu correo y usa una contraseña de al menos 6 caracteres.");
-        }
-        const next: SessionUser = {
-          id: "usr_demo_admin",
-          name: email.split("@")[0]!.replace(/[._-]/g, " "),
-          email,
-          organization: "Zolmyra AI",
-          role: "Administrador",
-        };
-        const storage = remember ? localStorage : sessionStorage;
-        storage.setItem(SESSION_KEY, JSON.stringify(next));
-        setUser(next);
+      configured,
+      async signIn(email, password) {
+        const { error } = await client().auth.signInWithPassword({ email: email.trim(), password });
+        if (error) throw toAppError(error, "No fue posible iniciar sesión.");
       },
-      signOut() {
-        localStorage.removeItem(SESSION_KEY);
-        sessionStorage.removeItem(SESSION_KEY);
+      async signUp(name, organization, email, password) {
+        const { data, error } = await client().auth.signUp({
+          email: email.trim(),
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/login`,
+            data: { full_name: name.trim(), organization_name: organization.trim() },
+          },
+        });
+        if (error) throw toAppError(error, "No fue posible crear la cuenta.");
+        return data.session === null;
+      },
+      async requestPasswordReset(email) {
+        const { error } = await client().auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/login?mode=update-password`,
+        });
+        if (error) throw toAppError(error, "No fue posible enviar el correo.");
+      },
+      async updatePassword(password) {
+        const { error } = await client().auth.updateUser({ password });
+        if (error) throw toAppError(error, "No fue posible cambiar la contraseña.");
+      },
+      async signOut() {
+        await client().auth.signOut();
         setUser(null);
         window.location.assign("/login");
       },
     }),
-    [user, ready],
+    [user, ready, configured],
   );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
-
 export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth debe utilizarse dentro de AuthProvider");
-  return context;
+  const v = useContext(Context);
+  if (!v) throw new Error("useAuth debe utilizarse dentro de AuthProvider");
+  return v;
 }

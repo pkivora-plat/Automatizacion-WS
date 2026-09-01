@@ -1,80 +1,139 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { useAuth } from "./auth";
+import { getSupabaseBrowserClient } from "./supabase/client";
+import { toAppError } from "./supabase/errors";
+import type { AppRole, PlanTier } from "./supabase/database.types";
+const roles = {
+  admin: "Administrador",
+  supervisor: "Supervisor",
+  agent: "Agente",
+  closer: "Closer",
+} as const;
+const plans = { starter: "Starter", growth: "Growth", enterprise: "Enterprise" } as const;
 export type Organization = {
   id: string;
   name: string;
   slug: string;
-  plan: "Starter" | "Growth" | "Enterprise";
-  role: "Administrador" | "Supervisor" | "Agente";
+  plan: (typeof plans)[PlanTier];
+  role: (typeof roles)[AppRole];
 };
-type OrganizationContextValue = {
+const empty: Organization = { id: "", name: "", slug: "", plan: "Starter", role: "Agente" };
+type Value = {
   organizations: Organization[];
   current: Organization;
+  ready: boolean;
   switchOrganization: (id: string) => void;
-  createOrganization: (name: string) => Organization;
+  createOrganization: (name: string) => Promise<Organization>;
 };
-const defaults: Organization[] = [
-  {
-    id: "org_zolmyra",
-    name: "Zolmyra AI",
-    slug: "zolmyra-ai",
-    plan: "Growth",
-    role: "Administrador",
-  },
-];
-const LIST_KEY = "zolmyra.organizations";
-const CURRENT_KEY = "zolmyra.current-organization";
-const OrganizationContext = createContext<OrganizationContextValue | null>(null);
-
+const Context = createContext<Value | null>(null);
+const KEY = "zolmyra.current-organization";
 export function OrganizationProvider({ children }: { children: ReactNode }) {
-  const [organizations, setOrganizations] = useState(defaults);
-  const [currentId, setCurrentId] = useState(defaults[0]!.id);
+  const { user, ready: authReady } = useAuth();
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [currentId, setCurrentId] = useState("");
+  const [ready, setReady] = useState(false);
+  const load = useCallback(async () => {
+    if (!user) {
+      setOrganizations([]);
+      setReady(true);
+      return;
+    }
+    const c = getSupabaseBrowserClient();
+    if (!c) {
+      setReady(true);
+      return;
+    }
+    const { data: m, error } = await c
+      .from("organization_members")
+      .select("organization_id,role")
+      .eq("user_id", user.id)
+      .eq("active", true);
+    if (error) {
+      console.error(error);
+      setReady(true);
+      return;
+    }
+    const ids = m.map((x) => x.organization_id);
+    const result = ids.length
+      ? await c
+          .from("organizations")
+          .select("id,name,slug,plan")
+          .in("id", ids)
+          .is("deleted_at", null)
+      : { data: [], error: null };
+    if (result.error) {
+      console.error(result.error);
+      setReady(true);
+      return;
+    }
+    const next = result.data.map((o) => {
+      const member = m.find((x) => x.organization_id === o.id)!;
+      return {
+        id: o.id,
+        name: o.name,
+        slug: o.slug,
+        plan: plans[o.plan],
+        role: roles[member.role],
+      };
+    });
+    setOrganizations(next);
+    const saved = localStorage.getItem(KEY);
+    setCurrentId(next.some((o) => o.id === saved) ? saved! : (next[0]?.id ?? ""));
+    setReady(true);
+  }, [user]);
   useEffect(() => {
-    const list = localStorage.getItem(LIST_KEY);
-    const selected = localStorage.getItem(CURRENT_KEY);
-    if (list) setOrganizations(JSON.parse(list) as Organization[]);
-    if (selected) setCurrentId(selected);
-  }, []);
-  const current = organizations.find((org) => org.id === currentId) ?? organizations[0]!;
-  const value = useMemo<OrganizationContextValue>(
+    if (authReady) void load();
+  }, [authReady, load]);
+  const current = organizations.find((o) => o.id === currentId) ?? organizations[0] ?? empty;
+  const value = useMemo<Value>(
     () => ({
       organizations,
       current,
+      ready,
       switchOrganization(id) {
-        if (organizations.some((org) => org.id === id)) {
+        if (organizations.some((o) => o.id === id)) {
           setCurrentId(id);
-          localStorage.setItem(CURRENT_KEY, id);
+          localStorage.setItem(KEY, id);
         }
       },
-      createOrganization(name) {
-        const slug = name
+      async createOrganization(name) {
+        const c = getSupabaseBrowserClient();
+        if (!c) throw new Error("Supabase no está configurado.");
+        const base = name
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/(^-|-$)/g, "");
-        const organization: Organization = {
-          id: `org_${crypto.randomUUID()}`,
-          name: name.trim(),
-          slug,
-          plan: "Starter",
+        const { data, error } = await c.rpc("create_organization", {
+          p_name: name.trim(),
+          p_slug: `${base}-${crypto.randomUUID().slice(0, 8)}`,
+        });
+        if (error) throw toAppError(error, "No fue posible crear la empresa.");
+        await load();
+        return {
+          id: data.id,
+          name: data.name,
+          slug: data.slug,
+          plan: plans[data.plan],
           role: "Administrador",
         };
-        const next = [...organizations, organization];
-        setOrganizations(next);
-        setCurrentId(organization.id);
-        localStorage.setItem(LIST_KEY, JSON.stringify(next));
-        localStorage.setItem(CURRENT_KEY, organization.id);
-        return organization;
       },
     }),
-    [organizations, current],
+    [organizations, current, ready, load],
   );
-  return <OrganizationContext.Provider value={value}>{children}</OrganizationContext.Provider>;
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
-
 export function useOrganization() {
-  const context = useContext(OrganizationContext);
-  if (!context) throw new Error("useOrganization debe utilizarse dentro de OrganizationProvider");
-  return context;
+  const v = useContext(Context);
+  if (!v) throw new Error("useOrganization debe utilizarse dentro de OrganizationProvider");
+  return v;
 }

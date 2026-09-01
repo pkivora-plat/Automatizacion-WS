@@ -23,7 +23,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function Login() {
-  const { user, ready, signIn } = useAuth();
+  const { user, ready, configured, signIn, requestPasswordReset } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,7 +41,7 @@ function Login() {
     setError("");
     setLoading(true);
     try {
-      await signIn(email, password, remember);
+      await signIn(email, password);
       await navigate({ to: "/" });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No fue posible iniciar sesión.");
@@ -153,7 +153,25 @@ function Login() {
                 />
                 Recordarme
               </label>
-              <button type="button" className="font-semibold text-primary">
+              <button
+                type="button"
+                className="font-semibold text-primary"
+                onClick={async () => {
+                  setError("");
+                  if (!email.includes("@")) {
+                    setError("Escribe tu correo para recuperar la contraseña.");
+                    return;
+                  }
+                  try {
+                    await requestPasswordReset(email);
+                    setError("Revisa tu correo para continuar con la recuperación.");
+                  } catch (cause) {
+                    setError(
+                      cause instanceof Error ? cause.message : "No fue posible enviar el correo.",
+                    );
+                  }
+                }}
+              >
                 ¿Olvidaste tu contraseña?
               </button>
             </div>
@@ -166,7 +184,7 @@ function Login() {
               </p>
             )}
             <button
-              disabled={loading}
+              disabled={loading || !configured}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-gradient font-semibold shadow-[var(--shadow-glow)] transition hover:opacity-90 disabled:opacity-60"
             >
               {loading ? (
@@ -178,11 +196,11 @@ function Login() {
               )}
             </button>
           </form>
-          <div className="mt-6 rounded-xl border border-warning/25 bg-warning/5 p-3 text-xs leading-relaxed text-muted-foreground">
-            <strong className="text-warning">Modo de preparación:</strong> usa cualquier correo
-            válido y una contraseña de 6 caracteres. Antes de producción se conectará al proveedor
-            de identidad.
-          </div>
+          {!configured && (
+            <div className="mt-6 rounded-xl border border-destructive/25 bg-destructive/5 p-3 text-xs text-destructive">
+              Supabase no está configurado. Define las variables públicas del proyecto.
+            </div>
+          )}
         </div>
       </section>
     </main>
